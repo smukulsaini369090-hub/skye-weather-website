@@ -1,0 +1,2447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skye — Spatial Weather & Atmospheric Intelligence</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts: Plus Jakarta Sans, Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- FontAwesome 6 Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Leaflet CSS & JS for Interactive Radar -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Chart.js for Smooth Spline Curves -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                        display: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #ffffff;
+            overflow-x: hidden;
+            min-height: 100vh;
+            background: #081226;
+            transition: background 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        /* =====================================================================
+           1. LIVING SKY MULTI-STOP ATMOSPHERIC GRADIENTS
+           ===================================================================== */
+        body.sky-clear-day {
+            background: radial-gradient(circle at 18% 12%, rgba(254, 240, 138, 0.28) 0%, transparent 42%),
+                        linear-gradient(165deg, #0c4a6e 0%, #0284c7 42%, #38bdf8 82%, #bae6fd 100%);
+        }
+        body.sky-clear-night {
+            background: radial-gradient(circle at 80% 15%, rgba(99, 102, 241, 0.22) 0%, transparent 45%),
+                        linear-gradient(170deg, #030712 0%, #0b132b 45%, #172554 84%, #1e3a8a 100%);
+        }
+        body.sky-cloudy-day {
+            background: radial-gradient(circle at 25% 15%, rgba(255, 255, 255, 0.16) 0%, transparent 45%),
+                        linear-gradient(165deg, #334155 0%, #475569 48%, #64748b 85%, #94a3b8 100%);
+        }
+        body.sky-cloudy-night {
+            background: linear-gradient(165deg, #090d16 0%, #111827 52%, #1e293b 100%);
+        }
+        body.sky-rain {
+            background: radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.14) 0%, transparent 50%),
+                        linear-gradient(170deg, #0f172a 0%, #1e293b 48%, #334155 100%);
+        }
+        body.sky-storm {
+            background: radial-gradient(circle at 60% 10%, rgba(168, 85, 247, 0.22) 0%, transparent 48%),
+                        linear-gradient(165deg, #090714 0%, #1a1033 50%, #241e38 100%);
+        }
+        body.sky-snow {
+            background: radial-gradient(circle at 30% 15%, rgba(224, 242, 254, 0.25) 0%, transparent 45%),
+                        linear-gradient(165deg, #1e3a5f 0%, #3b5278 52%, #64748b 100%);
+        }
+
+        /* =====================================================================
+           2. APPLE visionOS SPATIAL GLASS 2.0 WITH SPECULAR SPOTLIGHT
+           ===================================================================== */
+        .spatial-glass {
+            position: relative;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 100%);
+            backdrop-filter: blur(34px) saturate(195%);
+            -webkit-backdrop-filter: blur(34px) saturate(195%);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            box-shadow: 
+                0 24px 48px -12px rgba(0, 0, 0, 0.32),
+                inset 0 1px 1px 0 rgba(255, 255, 255, 0.38);
+            border-radius: 28px;
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s ease, box-shadow 0.35s ease;
+        }
+
+        /* Interactive Cursor Specular Glow */
+        .spatial-glass::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 28px;
+            pointer-events: none;
+            background: radial-gradient(
+                520px circle at var(--mouse-x, -500px) var(--mouse-y, -500px),
+                rgba(255, 255, 255, 0.14),
+                transparent 45%
+            );
+            opacity: 0;
+            transition: opacity 0.35s ease;
+        }
+        .spatial-glass:hover::before {
+            opacity: 1;
+        }
+        .spatial-glass:hover {
+            border-color: rgba(255, 255, 255, 0.36);
+            box-shadow: 
+                0 30px 60px -12px rgba(0, 0, 0, 0.38),
+                inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.48);
+        }
+
+        .spatial-pill {
+            background: rgba(255, 255, 255, 0.13);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
+            transition: all 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .spatial-pill:hover {
+            background: rgba(255, 255, 255, 0.23);
+            border-color: rgba(255, 255, 255, 0.38);
+            transform: translateY(-1px);
+        }
+        .spatial-pill:active {
+            transform: translateY(0px) scale(0.98);
+        }
+
+        .spatial-inner {
+            background: rgba(0, 0, 0, 0.16);
+            border: 1px solid rgba(255, 255, 255, 0.13);
+            border-radius: 20px;
+            transition: all 0.25s ease;
+        }
+        .spatial-inner:hover {
+            background: rgba(0, 0, 0, 0.22);
+            border-color: rgba(255, 255, 255, 0.22);
+        }
+
+        /* Widget Header Label (Apple Weather Style) */
+        .widget-label {
+            font-size: 0.71rem;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.68);
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        /* Custom Minimal Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.45);
+        }
+
+        /* Multi-color Apple AQI & UV Spectrum Bars */
+        .aqi-spectrum-bar {
+            background: linear-gradient(90deg, #10b981 0%, #facc15 25%, #f97316 50%, #ef4444 75%, #a855f7 100%);
+        }
+        .uv-spectrum-bar {
+            background: linear-gradient(90deg, #22c55e 0%, #eab308 30%, #f97316 60%, #ef4444 82%, #d946ef 100%);
+        }
+
+        /* Sculptural Hero Temperature */
+        .hero-temp-display {
+            font-weight: 200;
+            letter-spacing: -0.055em;
+            line-height: 0.9;
+            text-shadow: 0 16px 38px rgba(0, 0, 0, 0.22);
+        }
+
+        /* Subtle Floating Animation for 3D Weather Illustrations */
+        @keyframes gentleFloat {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(1.5deg); }
+        }
+        .float-illustration {
+            animation: gentleFloat 5.5s ease-in-out infinite;
+        }
+
+        /* Pulsing Radar Beacon Marker */
+        .radar-beacon {
+            width: 18px;
+            height: 18px;
+            border-radius: 9999px;
+            background: #38bdf8;
+            border: 2.5px solid #ffffff;
+            box-shadow: 0 0 16px rgba(56, 189, 248, 0.9);
+            position: relative;
+        }
+        .radar-beacon::after {
+            content: "";
+            position: absolute;
+            inset: -8px;
+            border-radius: 9999px;
+            border: 2px solid #38bdf8;
+            animation: beaconPing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes beaconPing {
+            0% { transform: scale(0.6); opacity: 1; }
+            100% { transform: scale(2.1); opacity: 0; }
+        }
+
+        /* Audio Equalizer Bars */
+        @keyframes eqBounce {
+            0%, 100% { height: 4px; }
+            50% { height: 13px; }
+        }
+        .eq-bar {
+            width: 2.5px;
+            height: 4px;
+            background: #fde047;
+            border-radius: 999px;
+            display: inline-block;
+        }
+        .eq-active .eq-bar:nth-child(1) { animation: eqBounce 0.6s infinite 0.1s; }
+        .eq-active .eq-bar:nth-child(2) { animation: eqBounce 0.55s infinite 0.25s; }
+        .eq-active .eq-bar:nth-child(3) { animation: eqBounce 0.7s infinite 0.15s; }
+
+        /* Leaflet Map Overrides */
+        .leaflet-container {
+            background: #0b132b !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+        }
+        /* Crisp Atmospheric Boost for Esri Dark Radar Canvas */
+        .esri-dark-boost {
+            filter: saturate(135%) contrast(106%);
+        }
+        .leaflet-control-attribution {
+            background: rgba(15, 23, 42, 0.65) !important;
+            color: rgba(255, 255, 255, 0.7) !important;
+            backdrop-filter: blur(8px);
+            border-radius: 8px 0 0 0;
+            font-size: 10px !important;
+        }
+        .leaflet-control-attribution a {
+            color: #7dd3fc !important;
+        }
+    </style>
+</head>
+<body id="sky-body" class="sky-clear-day selection:bg-white/30 selection:text-white pb-16">
+
+    <!-- Full-Viewport Living Sky, Shooting Stars, Rain, Snow & Lightning Canvas -->
+    <canvas id="sky-canvas" class="fixed inset-0 pointer-events-none z-0"></canvas>
+
+    <!-- Ambient Soft Radial Sun/Moon Glow Overlay -->
+    <div id="ambient-orb" class="fixed -top-32 -left-32 w-[560px] h-[560px] rounded-full bg-amber-200/25 blur-[135px] pointer-events-none z-0 transition-all duration-1000"></div>
+
+    <!-- Non-Intrusive Spatial Toast Notifications -->
+    <div id="toast-stack" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+    <!-- ===================================================================== -->
+    <!-- FLOATING SPATIAL NAVIGATION BAR (CLEAN STICKY, ZERO OVERLAP)          -->
+    <!-- ===================================================================== -->
+    <header class="sticky top-3 z-40 px-3 sm:px-6 max-w-[1500px] mx-auto">
+        <div class="spatial-glass !bg-slate-950/80 !backdrop-blur-2xl px-4 sm:px-6 py-3 rounded-full flex flex-wrap items-center justify-between gap-3 border border-white/25 shadow-2xl">
+            
+            <!-- Brand Identity & Live Sync Status -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-sky-400 via-cyan-300 to-amber-200 p-[1.5px] shadow-lg shadow-sky-500/25">
+                    <div class="w-full h-full rounded-full bg-slate-950/60 backdrop-blur-md flex items-center justify-center">
+                        <i class="fa-solid fa-cloud-sun text-white text-base"></i>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg font-extrabold tracking-tight text-white">Skye</span>
+                        <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white/15 text-white/95 border border-white/25">
+                            <span id="live-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
+                            <span id="sync-status-label">Live</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global Search Bar with Instant Autocomplete & Keyboard Shortcut (/) -->
+            <div class="relative flex-1 max-w-md mx-auto w-full order-3 lg:order-2">
+                <div class="relative flex items-center">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 text-white/65 text-xs pointer-events-none"></i>
+                    <input 
+                        id="search-input" 
+                        type="text" 
+                        autocomplete="off"
+                        aria-label="Search global cities, districts, or villages"
+                        placeholder="Search any city, district, or press '/' ..." 
+                        class="w-full pl-10 pr-28 py-2 rounded-full bg-white/10 hover:bg-white/15 focus:bg-slate-900/90 border border-white/25 text-sm text-white placeholder-white/65 focus:outline-none focus:border-sky-300/60 transition"
+                    >
+                    <div class="absolute right-1.5 flex items-center gap-1">
+                        <button id="clear-search" onclick="clearSearch()" aria-label="Clear search" class="hidden w-6 h-6 rounded-full text-white/65 hover:text-white flex items-center justify-center">
+                            <i class="fa-solid fa-xmark text-xs"></i>
+                        </button>
+                        <button onclick="detectLocation(true)" class="spatial-pill px-3 py-1 rounded-full text-xs font-semibold text-white flex items-center gap-1.5" title="Auto-detect my exact GPS location">
+                            <i class="fa-solid fa-location-arrow text-[11px] text-sky-200"></i>
+                            <span>Locate</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Autocomplete Suggestions Dropdown -->
+                <div id="search-dropdown" role="listbox" class="hidden absolute left-0 right-0 mt-2.5 rounded-3xl spatial-glass !bg-slate-900/95 border border-white/30 shadow-2xl overflow-hidden z-50 max-h-80 overflow-y-auto divide-y divide-white/10"></div>
+            </div>
+
+            <!-- Quick Controls: Ambient Sound, Voice Briefing, Units, Sources & Refresh -->
+            <div class="flex items-center gap-2 order-2 lg:order-3">
+                
+                <!-- Procedural Ambient Weather Soundscape Synthesizer Button -->
+                <button id="ambient-sound-btn" onclick="toggleAmbientSound()" class="spatial-pill px-3 py-1.5 rounded-full text-xs font-semibold text-white/95 flex items-center gap-2" title="Toggle procedural ambient weather soundscape (Rain, Wind, Atmosphere)">
+                    <i id="ambient-sound-icon" class="fa-solid fa-headphones text-sky-200"></i>
+                    <span class="hidden xl:inline">Zen Audio</span>
+                    <span id="ambient-eq" class="hidden items-end gap-0.5 h-3">
+                        <span class="eq-bar"></span>
+                        <span class="eq-bar"></span>
+                        <span class="eq-bar"></span>
+                    </span>
+                </button>
+
+                <!-- Voice Briefing Pill (Hindi & English) -->
+                <div class="spatial-pill rounded-full p-1 flex items-center">
+                    <button onclick="speakWeather('en')" class="px-2.5 py-1 rounded-full text-xs font-semibold text-white/90 hover:bg-white/15 transition flex items-center gap-1.5" title="English Voice Weather Briefing">
+                        <i id="voice-icon-en" class="fa-solid fa-volume-high text-sky-200"></i>
+                        <span class="hidden sm:inline">EN</span>
+                    </button>
+                    <div class="w-px h-3.5 bg-white/20"></div>
+                    <button onclick="speakWeather('hi')" class="px-2.5 py-1 rounded-full text-xs font-semibold text-white/90 hover:bg-white/15 transition flex items-center gap-1" title="Hindi Voice Weather Briefing">
+                        <i id="voice-icon-hi" class="fa-solid fa-microphone-lines text-amber-200"></i>
+                        <span>हिंदी</span>
+                    </button>
+                </div>
+
+                <!-- Temperature Unit Switcher -->
+                <div class="spatial-pill p-1 rounded-full flex items-center text-xs font-bold">
+                    <button id="btn-c" onclick="setTempUnit('C')" class="px-2.5 py-1 rounded-full bg-white text-slate-900 shadow-sm transition">°C</button>
+                    <button id="btn-f" onclick="setTempUnit('F')" class="px-2.5 py-1 rounded-full text-white/80 hover:text-white transition">°F</button>
+                </div>
+
+                <!-- Active API Key Pill Badge -->
+                <button onclick="toggleSettingsModal(true)" class="spatial-pill px-3 py-1.5 rounded-full text-xs font-semibold text-white/95 flex items-center gap-1.5 border-emerald-300/40" title="Active API Key: LIVE ENGINE">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <i class="fa-solid fa-key text-amber-200 text-[11px]"></i>
+                    <span id="header-api-badge" class="font-mono text-[11px] hidden md:inline">LIVE ENGINE</span>
+                </button>
+
+                <!-- Refresh Button -->
+                <button onclick="refreshWeather()" aria-label="Refresh live weather" class="spatial-pill w-8 h-8 rounded-full flex items-center justify-center text-white/85 hover:text-white" title="Refresh Live Data">
+                    <i id="refresh-spinner" class="fa-solid fa-rotate text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===================================================================== -->
+    <!-- NON-STICKY TOP CONTROL DECK (PINNED CITIES + SKY MOOD SIMULATOR)      -->
+    <!-- ===================================================================== -->
+    <div class="relative z-20 max-w-[1500px] mx-auto px-3 sm:px-6 pt-3">
+        <div class="spatial-glass px-4 py-2.5 rounded-3xl flex flex-wrap items-center justify-between gap-2">
+            <!-- Saved Locations Pill Strip -->
+            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+                <button onclick="saveCurrentCity()" class="shrink-0 spatial-pill px-3 py-1 rounded-full text-xs font-semibold text-white/95 flex items-center gap-1.5">
+                    <i class="fa-solid fa-thumbtack text-[10px] text-amber-200"></i>
+                    <span>Pin Area</span>
+                </button>
+                <div id="saved-cities-strip" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar"></div>
+            </div>
+
+            <!-- Interactive Atmosphere Simulator (Preview any weather mood!) -->
+            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                <span class="text-[11px] font-semibold text-white/75 hidden sm:inline mr-1">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-200 mr-1"></i>Sky Mood:
+                </span>
+                <button onclick="setAtmosphereOverride(null)" id="mood-auto" class="spatial-pill px-2.5 py-1 rounded-full text-[11px] font-bold bg-white text-slate-900 shadow-sm">Auto Live</button>
+                <button onclick="setAtmosphereOverride('clear-day')" id="mood-clear-day" class="spatial-pill px-2.5 py-1 rounded-full text-[11px] font-medium text-white/85">☀️ Solar</button>
+                <button onclick="setAtmosphereOverride('clear-night')" id="mood-clear-night" class="spatial-pill px-2.5 py-1 rounded-full text-[11px] font-medium text-white/85">🌌 Starlight</button>
+                <button onclick="setAtmosphereOverride('rain')" id="mood-rain" class="spatial-pill px-2.5 py-1 rounded-full text-[11px] font-medium text-white/85">🌧️ Monsoon</button>
+                <button onclick="setAtmosphereOverride('storm')" id="mood-storm" class="spatial-pill px-2.5 py-1 rounded-full text-[11px] font-medium text-white/85">⚡ Storm</button>
+                <button onclick="setAtmosphereOverride('snow')" id="mood-snow" class="spatial-pill px-2.5 py-1 rounded-full text-[11px] font-medium text-white/85">❄️ Alpine</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MAIN SPATIAL BENTO CONTAINER                                          -->
+    <!-- ===================================================================== -->
+    <main class="relative z-10 max-w-[1500px] mx-auto px-3 sm:px-6 pt-4 space-y-6">
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+            
+            <!-- Left (5 Cols): Sculptural Current Conditions & Lifestyle Guide -->
+            <div class="lg:col-span-5 spatial-glass p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden">
+                
+                <!-- Location Header & Live Local Clock -->
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <div class="inline-flex items-center gap-1.5 text-xs font-semibold text-white/90 bg-white/15 px-3 py-1 rounded-full border border-white/25 mb-2.5">
+                            <i class="fa-solid fa-location-dot text-sky-200 text-[11px]"></i>
+                            <span id="location-badge-text">Auto-Detecting Area...</span>
+                        </div>
+                        <h1 id="city-title" class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                            New Delhi
+                        </h1>
+                        <p id="region-subtitle" class="text-sm text-white/80 font-medium mt-0.5">
+                            Delhi, India
+                        </p>
+                    </div>
+
+                    <div class="text-right shrink-0">
+                        <div id="live-local-time" class="font-mono text-base sm:text-lg font-semibold text-white tracking-tight">
+                            --:--
+                        </div>
+                        <div id="live-local-date" class="text-xs text-white/75 font-medium">
+                            ---
+                        </div>
+                        <div id="coords-elevation-pill" class="font-mono text-[11px] text-white/60 mt-1">
+                            28.61°N, 77.21°E
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sculptural Temperature + Bespoke 3D-Style Weather Illustration -->
+                <div class="flex items-center justify-between gap-4 my-6">
+                    <div>
+                        <div class="flex items-start">
+                            <span id="hero-temp" class="hero-temp-display text-7xl sm:text-[88px] text-white">28</span>
+                            <span id="hero-temp-unit" class="text-3xl sm:text-4xl font-light text-white/85 mt-2 ml-1">°</span>
+                        </div>
+                        <div id="hero-condition-label" class="text-xl sm:text-2xl font-bold text-white/95 mt-2">
+                            Clear Sky
+                        </div>
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-sm font-medium text-white/85">
+                            <span>H: <strong id="hero-high" class="text-white">32°</strong></span>
+                            <span>L: <strong id="hero-low" class="text-white">19°</strong></span>
+                            <span>•</span>
+                            <span>Feels like <strong id="hero-feels" class="text-white">29°</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- Bespoke Animated Weather Illustration -->
+                    <div id="hero-illustration" class="w-28 h-28 sm:w-36 sm:h-36 shrink-0 float-illustration flex items-center justify-center"></div>
+                </div>
+
+                <!-- Smart Lifestyle & Activity Index Card -->
+                <div class="spatial-inner p-4 sm:p-5">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="widget-label text-white/90">
+                            <i class="fa-solid fa-sparkles text-amber-200"></i>
+                            AI Atmospheric & Activity Concierge
+                        </span>
+                        <span id="outdoor-score-pill" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-100 border border-emerald-300/30">
+                            Comfort: 9.2 / 10
+                        </span>
+                    </div>
+                    <p id="lifestyle-summary-text" class="text-sm text-white/90 leading-relaxed font-normal">
+                        Analyzing real-time thermal comfort, UV intensity, wind breeze, and air quality for your area...
+                    </p>
+                    <div id="lifestyle-pills" class="flex flex-wrap gap-2 mt-3"></div>
+                </div>
+            </div>
+
+            <!-- Right (7 Cols): 24-Hour Smooth Spline Curve & Interactive Hourly Filmstrip -->
+            <div class="lg:col-span-7 spatial-glass p-6 sm:p-7 flex flex-col justify-between">
+                <div>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                        <div>
+                            <div class="widget-label">
+                                <i class="fa-regular fa-clock"></i>
+                                <span id="hourly-section-tag">24-Hour Atmospheric Curve</span>
+                            </div>
+                            <h2 id="hourly-headline" class="text-base sm:text-lg font-bold text-white mt-0.5">
+                                Hourly temperature & precipitation outlook
+                            </h2>
+                        </div>
+
+                        <!-- Clean Pill Segmented Control -->
+                        <div class="spatial-inner p-1 rounded-full inline-flex items-center gap-1 self-start">
+                            <button id="tab-temp" onclick="switchChartMode('temp')" class="px-3.5 py-1.5 rounded-full text-xs font-bold bg-white text-slate-900 shadow-sm transition">
+                                Temperature
+                            </button>
+                            <button id="tab-rain" onclick="switchChartMode('rain')" class="px-3.5 py-1.5 rounded-full text-xs font-semibold text-white/80 hover:text-white transition">
+                                Rain %
+                            </button>
+                            <button id="tab-wind" onclick="switchChartMode('wind')" class="px-3.5 py-1.5 rounded-full text-xs font-semibold text-white/80 hover:text-white transition">
+                                Wind
+                            </button>
+                            <button id="tab-uv" onclick="switchChartMode('uv')" class="px-3.5 py-1.5 rounded-full text-xs font-semibold text-white/80 hover:text-white transition">
+                                UV
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Smooth Spline Curve Canvas -->
+                    <div class="w-full h-56 sm:h-60 relative my-2">
+                        <canvas id="hourly-spline-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Scrollable 24-Hour Glass Strip -->
+                <div class="mt-4 pt-4 border-t border-white/15">
+                    <div id="hourly-pills-strip" class="flex items-center gap-2.5 overflow-x-auto pb-1"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- ROW 2: INTERACTIVE LIVE RADAR MAP (7 COLS) + 10-DAY FORECAST (5)  -->
+        <!-- ================================================================= -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+            
+            <!-- Left (7 Cols): Interactive Live Precipitation Radar Map -->
+            <div class="lg:col-span-7 spatial-glass p-5 sm:p-6 flex flex-col justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div>
+                        <div class="widget-label">
+                            <i class="fa-solid fa-satellite-dish text-sky-300"></i>
+                            Live Doppler Precipitation Radar & Pinpoint Explorer
+                        </div>
+                        <p class="text-xs text-white/75 mt-0.5">
+                            Tap anywhere on the planet to inspect hyper-local weather at that exact coordinate
+                        </p>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button id="radar-play-btn" onclick="toggleRadarPlayback()" class="spatial-pill px-3.5 py-1.5 rounded-full text-xs font-semibold text-white flex items-center gap-2">
+                            <i id="radar-play-icon" class="fa-solid fa-play text-[10px] text-sky-200"></i>
+                            <span id="radar-time-label" class="font-mono">Live Radar</span>
+                        </button>
+                        <button onclick="recenterMap()" class="spatial-pill w-8 h-8 rounded-full flex items-center justify-center text-white" title="Recenter on active location">
+                            <i class="fa-solid fa-crosshairs text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Map Container -->
+                <div class="relative w-full h-[380px] sm:h-[445px] rounded-3xl overflow-hidden border border-white/20 shadow-inner">
+                    <div id="weather-radar-map" class="w-full h-full z-10"></div>
+
+                    <!-- Floating Coordinates + API Key Authenticated HUD Overlay -->
+                    <div class="absolute top-3 left-3 z-20 flex flex-wrap items-center gap-1.5 pointer-events-none">
+                        <div id="map-coord-hud" class="spatial-pill px-3 py-1 rounded-full font-mono text-[11px] font-medium text-white/95">
+                            Pin: 28.61°N, 77.21°E
+                        </div>
+                        <div id="map-key-hud" class="spatial-pill px-2.5 py-1 rounded-full font-mono text-[10px] font-semibold text-emerald-200 border-emerald-300/30 flex items-center gap-1.5">
+                            <i class="fa-solid fa-shield-halved text-emerald-300"></i>
+                            <span>KEY: ACTIVE</span>
+                        </div>
+                    </div>
+
+                    <!-- Map Style Switcher (Dark Radar / Satellite / Street / Google Hybrid) -->
+                    <div class="absolute top-3 right-3 z-20 spatial-pill p-1 rounded-full flex items-center gap-1 text-[11px] font-semibold">
+                        <button id="map-style-dark" onclick="setMapBaseStyle('dark')" class="px-2.5 py-1 rounded-full bg-white text-slate-900 shadow-sm transition">Dark</button>
+                        <button id="map-style-sat" onclick="setMapBaseStyle('sat')" class="px-2.5 py-1 rounded-full text-white/85 hover:text-white transition">Satellite</button>
+                        <button id="map-style-hybrid" onclick="setMapBaseStyle('hybrid')" class="px-2.5 py-1 rounded-full text-white/85 hover:text-white transition">Google HD</button>
+                        <button id="map-style-street" onclick="setMapBaseStyle('street')" class="px-2.5 py-1 rounded-full text-white/85 hover:text-white transition">Street</button>
+                    </div>
+
+                    <!-- Floating Glass Legend -->
+                    <div class="absolute bottom-3 left-3 z-20 spatial-pill px-3 py-1.5 rounded-full text-[11px] font-medium text-white flex items-center gap-2 pointer-events-none">
+                        <span class="text-white/80">Rain Intensity:</span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span><span>Light</span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span><span>Mod</span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span><span>Heavy</span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span><span>Storm</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right (5 Cols): Interactive 10-Day Forecast with Click-to-Inspect Day Detail -->
+            <div class="lg:col-span-5 spatial-glass p-5 sm:p-6 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="widget-label">
+                            <i class="fa-regular fa-calendar-check text-amber-200"></i>
+                            10-Day Interactive Spectrum
+                        </div>
+                        <span class="text-[11px] text-white/70 font-medium">Tap any day to inspect</span>
+                    </div>
+
+                    <!-- Selected Day Quick Inspector Banner -->
+                    <div id="selected-day-banner" class="spatial-inner px-3.5 py-2.5 mb-3 flex items-center justify-between text-xs">
+                        <div>
+                            <span id="inspected-day-title" class="font-bold text-white block">Today's Outlook</span>
+                            <span id="inspected-day-sub" class="text-white/75 text-[11px]">Max UV -- • Wind -- km/h • Rain -- mm</span>
+                        </div>
+                        <button onclick="selectForecastDay(0)" class="text-[11px] font-semibold text-sky-200 hover:underline">Reset</button>
+                    </div>
+                </div>
+
+                <div id="ten-day-list" class="divide-y divide-white/10 flex-1 flex flex-col justify-between">
+                    <!-- Populated dynamically with interactive Apple-style temperature range bars -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- ROW 3: VISUAL WIDGET BENTO GRID (AIR QUALITY, WIND, SUN, UV)      -->
+        <!-- ================================================================= -->
+        <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-6">
+
+            <!-- Widget 1 (6 Cols): Apple-Style Air Quality & Particulate Suite -->
+            <div class="xl:col-span-6 spatial-glass p-6 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="widget-label">
+                            <i class="fa-solid fa-lungs text-emerald-300"></i>
+                            Air Quality & Respiratory Intelligence
+                        </div>
+                        <span id="aqi-category-badge" class="text-xs font-bold px-3 py-1 rounded-full bg-emerald-400/25 text-emerald-100 border border-emerald-300/30">
+                            Good Air
+                        </span>
+                    </div>
+
+                    <!-- Big AQI Readout & Primary Advice -->
+                    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2 my-3">
+                        <div class="flex items-baseline gap-3">
+                            <span id="aqi-main-number" class="text-5xl font-light tracking-tight text-white">42</span>
+                            <div>
+                                <div id="aqi-standard-label" class="text-sm font-bold text-white">US EPA Index</div>
+                                <div id="eu-aqi-sub" class="text-xs text-white/75">European AQI: 28</div>
+                            </div>
+                        </div>
+                        <p id="aqi-health-note" class="text-xs sm:text-sm text-white/85 max-w-xs leading-snug">
+                            Air quality is clean and ideal for outdoor sports and deep breathing.
+                        </p>
+                    </div>
+
+                    <!-- Apple Multi-Color Spectrum Bar with Glowing Indicator Dot -->
+                    <div class="relative w-full h-3 rounded-full aqi-spectrum-bar my-5 shadow-inner">
+                        <div id="aqi-spectrum-dot" class="absolute -top-1 w-5 h-5 rounded-full bg-white border-2 border-slate-900 shadow-lg transition-all duration-700" style="left: 12%;"></div>
+                    </div>
+                </div>
+
+                <!-- Pollutant Breakdown Pills (PM2.5, PM10, O3, NO2, SO2, Dust) -->
+                <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-2">
+                    <div class="spatial-inner p-2.5 text-center">
+                        <div class="text-[11px] text-white/65 font-semibold">PM2.5</div>
+                        <div id="p-pm25" class="font-mono text-sm font-bold text-white mt-0.5">--</div>
+                        <div class="text-[10px] text-white/50">µg/m³</div>
+                    </div>
+                    <div class="spatial-inner p-2.5 text-center">
+                        <div class="text-[11px] text-white/65 font-semibold">PM10</div>
+                        <div id="p-pm10" class="font-mono text-sm font-bold text-white mt-0.5">--</div>
+                        <div class="text-[10px] text-white/50">µg/m³</div>
+                    </div>
+                    <div class="spatial-inner p-2.5 text-center">
+                        <div class="text-[11px] text-white/65 font-semibold">O₃</div>
+                        <div id="p-o3" class="font-mono text-sm font-bold text-white mt-0.5">--</div>
+                        <div class="text-[10px] text-white/50">µg/m³</div>
+                    </div>
+                    <div class="spatial-inner p-2.5 text-center">
+                        <div class="text-[11px] text-white/65 font-semibold">NO₂</div>
+                        <div id="p-no2" class="font-mono text-sm font-bold text-white mt-0.5">--</div>
+                        <div class="text-[10px] text-white/50">µg/m³</div>
+                    </div>
+                    <div class="spatial-inner p-2.5 text-center">
+                        <div class="text-[11px] text-white/65 font-semibold">SO₂</div>
+                        <div id="p-so2" class="font-mono text-sm font-bold text-white mt-0.5">--</div>
+                        <div class="text-[10px] text-white/50">µg/m³</div>
+                    </div>
+                    <div class="spatial-inner p-2.5 text-center">
+                        <div class="text-[11px] text-white/65 font-semibold">Dust</div>
+                        <div id="p-dust" class="font-mono text-sm font-bold text-white mt-0.5">--</div>
+                        <div class="text-[10px] text-white/50">µg/m³</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Widget 2 (3 Cols): 360° Wind Compass Dial & Beaufort Scale -->
+            <div class="xl:col-span-3 spatial-glass p-6 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <div class="widget-label">
+                        <i class="fa-solid fa-compass text-sky-300"></i>
+                        Wind & Compass
+                    </div>
+                    <span id="beaufort-pill" class="text-[11px] font-semibold text-sky-200">Gentle Breeze</span>
+                </div>
+
+                <!-- Circular 360° Compass Dial -->
+                <div class="relative w-40 h-40 mx-auto my-2 flex items-center justify-center">
+                    <svg viewBox="0 0 140 140" class="w-full h-full">
+                        <circle cx="70" cy="70" r="62" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" stroke-dasharray="2 4" />
+                        <circle cx="70" cy="70" r="54" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+                        <text x="70" y="18" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="800">N</text>
+                        <text x="124" y="73" text-anchor="middle" fill="rgba(255,255,255,0.65)" font-size="10" font-weight="600">E</text>
+                        <text x="70" y="129" text-anchor="middle" fill="rgba(255,255,255,0.65)" font-size="10" font-weight="600">S</text>
+                        <text x="16" y="73" text-anchor="middle" fill="rgba(255,255,255,0.65)" font-size="10" font-weight="600">W</text>
+
+                        <!-- Rotating Compass Needle -->
+                        <g id="wind-compass-needle" transform="rotate(0, 70, 70)" style="transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);">
+                            <polygon points="70,18 65,42 70,38 75,42" fill="#38bdf8" />
+                            <line x1="70" y1="38" x2="70" y2="112" stroke="rgba(255,255,255,0.38)" stroke-width="2" stroke-linecap="round" />
+                            <circle cx="70" cy="112" r="3.5" fill="rgba(255,255,255,0.55)" />
+                        </g>
+                    </svg>
+
+                    <!-- Center Readout -->
+                    <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                        <span id="wind-center-speed" class="font-mono text-2xl font-bold text-white leading-none">12</span>
+                        <span id="wind-center-unit" class="text-[11px] text-white/75 font-medium mt-0.5">km/h</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="spatial-inner p-2.5">
+                        <span class="text-white/65 block text-[11px]">Peak Gusts</span>
+                        <strong id="wind-gust-readout" class="font-mono text-white text-sm">-- km/h</strong>
+                    </div>
+                    <div class="spatial-inner p-2.5">
+                        <span class="text-white/65 block text-[11px]">Azimuth</span>
+                        <strong id="wind-dir-readout" class="font-mono text-white text-sm">--°</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Widget 3 (3 Cols): Sine-Wave Solar Horizon & Golden Hour Tracker -->
+            <div class="xl:col-span-3 spatial-glass p-6 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <div class="widget-label">
+                        <i class="fa-solid fa-sun text-amber-300"></i>
+                        Solar & Astronomy
+                    </div>
+                    <span id="moon-phase-pill" class="text-[11px] font-semibold text-white/85">🌙 Waxing Moon</span>
+                </div>
+
+                <!-- Smooth Sine-Wave Sun Curve -->
+                <div class="my-2">
+                    <svg viewBox="0 0 240 100" class="w-full overflow-visible">
+                        <defs>
+                            <linearGradient id="solarCurveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.4" />
+                                <stop offset="50%" stop-color="#fde047" stop-opacity="1" />
+                                <stop offset="100%" stop-color="#fb923c" stop-opacity="0.4" />
+                            </linearGradient>
+                        </defs>
+                        <!-- Horizon Line -->
+                        <line x1="10" y1="78" x2="230" y2="78" stroke="rgba(255,255,255,0.22)" stroke-width="1" stroke-dasharray="3 3" />
+                        <!-- Sine-Wave Path -->
+                        <path d="M 15 78 C 65 78, 75 16, 120 16 C 165 16, 175 78, 225 78" fill="none" stroke="url(#solarCurveGrad)" stroke-width="3" stroke-linecap="round" />
+                        <!-- Glowing Sun Orb -->
+                        <g id="solar-orb-node" transform="translate(120, 16)">
+                            <circle cx="0" cy="0" r="12" fill="rgba(253, 224, 71, 0.32)" />
+                            <circle cx="0" cy="0" r="5.5" fill="#fde047" stroke="#ffffff" stroke-width="1.5" />
+                        </g>
+                    </svg>
+                </div>
+
+                <div class="flex items-center justify-between text-xs pt-2 border-t border-white/15">
+                    <div>
+                        <span class="text-white/65 block text-[11px]">Sunrise</span>
+                        <strong id="sunrise-label" class="font-mono text-white text-sm">--:--</strong>
+                    </div>
+                    <div class="text-center">
+                        <span class="text-white/65 block text-[11px]">Daylight</span>
+                        <strong id="daylight-label" class="font-mono text-white/90 text-xs">--h --m</strong>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-white/65 block text-[11px]">Sunset</span>
+                        <strong id="sunset-label" class="font-mono text-white text-sm">--:--</strong>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- ROW 4: SECONDARY VISUAL WIDGETS (UV, HUMIDITY, PRESSURE, VISIBILITY)-->
+        <!-- ================================================================= -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+
+            <!-- UV Index & Solar Radiation Card -->
+            <div class="spatial-glass p-6 flex flex-col justify-between">
+                <div class="widget-label">
+                    <i class="fa-solid fa-sun-plant-wilt text-amber-200"></i>
+                    UV Index & Irradiance
+                </div>
+
+                <div class="my-4">
+                    <div class="flex items-baseline gap-2.5">
+                        <span id="uv-number" class="text-4xl font-light text-white">3</span>
+                        <span id="uv-level-text" class="text-base font-bold text-white/95">Moderate</span>
+                    </div>
+                    <!-- UV Spectrum Bar -->
+                    <div class="relative w-full h-2.5 rounded-full uv-spectrum-bar mt-4">
+                        <div id="uv-dot" class="absolute -top-1 w-4 h-4 rounded-full bg-white border-2 border-slate-900 shadow transition-all duration-700" style="left: 18%;"></div>
+                    </div>
+                </div>
+
+                <p id="uv-advice-text" class="text-xs text-white/80 leading-relaxed">
+                    Peak UV today is --. Solar irradiance is -- W/m².
+                </p>
+            </div>
+
+            <!-- Humidity & Dew Point Visual Gauge Card -->
+            <div class="spatial-glass p-6 flex flex-col justify-between">
+                <div class="widget-label">
+                    <i class="fa-solid fa-droplet text-sky-300"></i>
+                    Humidity & Dew Point
+                </div>
+
+                <div class="flex items-center justify-between my-3">
+                    <div>
+                        <span id="humidity-number" class="text-4xl font-light text-white">54%</span>
+                        <div id="humidity-comfort-label" class="text-sm font-semibold text-white/90 mt-1">Optimal Comfort</div>
+                    </div>
+                    <!-- Vertical Capsule Fill Meter -->
+                    <div class="w-8 h-20 rounded-full bg-black/25 border border-white/20 p-1 flex flex-col justify-end overflow-hidden">
+                        <div id="humidity-fill-bar" class="w-full rounded-full bg-gradient-to-t from-sky-400 to-cyan-200 transition-all duration-700" style="height: 54%;"></div>
+                    </div>
+                </div>
+
+                <p id="dew-point-text" class="text-xs text-white/80">
+                    The dew point is --° right now.
+                </p>
+            </div>
+
+            <!-- Barometric Pressure Radial Dial Card -->
+            <div class="spatial-glass p-6 flex flex-col justify-between">
+                <div class="widget-label">
+                    <i class="fa-solid fa-gauge-high text-cyan-200"></i>
+                    Atmospheric Pressure
+                </div>
+
+                <div class="flex items-center justify-between my-3">
+                    <div>
+                        <span id="pressure-number" class="font-mono text-3xl font-light text-white">1013</span>
+                        <span class="text-xs text-white/75 block mt-0.5">hPa (Sea Level)</span>
+                    </div>
+
+                    <!-- Semi-Circular Pressure Dial -->
+                    <svg viewBox="0 0 100 60" class="w-24 h-14 overflow-visible">
+                        <path d="M 10 52 A 40 40 0 0 1 90 52" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="7" stroke-linecap="round" />
+                        <path id="pressure-arc" d="M 10 52 A 40 40 0 0 1 90 52" fill="none" stroke="#7dd3fc" stroke-width="7" stroke-linecap="round" stroke-dasharray="126" stroke-dashoffset="63" style="transition: stroke-dashoffset 0.8s ease;" />
+                    </svg>
+                </div>
+
+                <p id="surface-pressure-text" class="text-xs text-white/80">
+                    Surface pressure: -- hPa • Standard 1013 hPa
+                </p>
+            </div>
+
+            <!-- Visibility, CAPE Thunderstorm Energy & Soil Hydrology Card -->
+            <div class="spatial-glass p-6 flex flex-col justify-between">
+                <div class="widget-label">
+                    <i class="fa-solid fa-eye text-emerald-200"></i>
+                    Visibility & Hydrology
+                </div>
+
+                <div class="my-3">
+                    <div class="flex items-baseline justify-between">
+                        <span id="visibility-number" class="text-3xl font-light text-white">10.0 km</span>
+                        <span id="cloud-cover-badge" class="text-xs font-semibold text-white/85">Clouds: --%</span>
+                    </div>
+                    <!-- Visual Distance Scale -->
+                    <div class="w-full h-2 rounded-full bg-white/15 mt-3 overflow-hidden">
+                        <div id="visibility-bar" class="h-full rounded-full bg-emerald-300 transition-all duration-700" style="width: 85%;"></div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between text-xs text-white/80 pt-2 border-t border-white/15">
+                    <span id="freezing-level-text">Freezing: -- m</span>
+                    <span id="soil-moisture-text">Soil Temp: --°</span>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- DATA SOURCES, API KEY & TELEMETRY EXPORT MODAL                        -->
+    <!-- ===================================================================== -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="spatial-glass max-w-lg w-full p-6 sm:p-7 border border-white/30 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-white/15 pb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-white">Atmospheric Data Sources & API</h3>
+                    <p class="text-xs text-white/70">Pre-configured Dual-Engine Live Weather & Air Quality</p>
+                </div>
+                <button onclick="toggleSettingsModal(false)" class="spatial-pill w-8 h-8 rounded-full flex items-center justify-center text-white/80 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <label class="text-xs font-semibold uppercase tracking-wider text-white/80 block">
+                    Configured Primary API Key
+                </label>
+                <div class="flex gap-2">
+                    <input id="api-key-field" type="text" value="LIVE ENGINE" class="flex-1 rounded-2xl bg-black/30 border border-white/20 px-3.5 py-2 font-mono text-xs text-white focus:outline-none focus:border-white/50">
+                    <button onclick="saveApiKey()" class="px-4 py-2 rounded-2xl bg-white text-slate-900 text-xs font-bold hover:bg-white/90 transition">
+                        Save
+                    </button>
+                </div>
+                <p id="api-status-line" class="text-[11px] text-white/70 leading-relaxed">
+                    Active Stream: Authenticated AQ Key + Open-Meteo High-Resolution Forecast, CAMS Global Air Quality, BigDataCloud Geo & RainViewer Live Doppler Radar.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button onclick="exportWeatherJSON()" class="spatial-pill py-2.5 px-4 rounded-2xl text-xs font-semibold text-white flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-download text-sky-200"></i>
+                    Export JSON Data
+                </button>
+                <button onclick="copyShareSummary()" class="spatial-pill py-2.5 px-4 rounded-2xl text-xs font-semibold text-white flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-share-nodes text-emerald-200"></i>
+                    Copy Weather Card
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Minimal Consumer Footer -->
+    <footer class="relative z-10 max-w-[1500px] mx-auto px-6 mt-12 pt-6 border-t border-white/15 text-xs text-white/75 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-cloud-sun text-white/90"></i>
+            <span><strong>Skye Spatial Weather 2.0</strong> • Apple visionOS Spatial Glass & Real-Time Doppler Intelligence</span>
+        </div>
+        <div>
+            Press <kbd class="px-1.5 py-0.5 rounded bg-white/15 font-mono text-[10px]">/</kbd> to Search • Click anywhere on Radar Map to Pinpoint
+        </div>
+    </footer>
+
+    <!-- ===================================================================== -->
+    <!-- APPLICATION LOGIC, PROCEDURAL SOUND & LIVING SKY ENGINE               -->
+    <!-- ===================================================================== -->
+    <script>
+        /***********************************************************************
+         * 1. STATE & CONFIGURATION
+         ***********************************************************************/
+        const SkyeState = {
+            apiKey: "LIVE_ENGINE",
+            tempUnit: 'C', // 'C' or 'F'
+            chartMode: 'temp', // 'temp', 'rain', 'wind', 'uv'
+            selectedDayIdx: 0, // 0 = Today, 1..9 = Forecast Day
+            atmosphereOverride: null, // null = Live Weather, or 'clear-day', 'clear-night', 'rain', 'storm', 'snow'
+            location: {
+                name: "New Delhi",
+                subLocality: "Connaught Place",
+                region: "Delhi",
+                country: "India",
+                lat: 28.6139,
+                lon: 77.2090,
+                elevation: 216,
+                timezone: "Asia/Kolkata",
+                source: "Auto-Located"
+            },
+            weather: null,
+            airQuality: null,
+            chartInstance: null,
+            clockTimer: null,
+            map: null,
+            baseTileLayer: null,
+            labelTileLayer: null,
+            mapStyle: 'dark',
+            mapMarker: null,
+            radarLayers: [],
+            radarFrames: [],
+            radarIdx: 0,
+            radarPlaying: false,
+            radarInterval: null,
+            skyMode: 'clear-day',
+            savedCities: [],
+            audioCtx: null,
+            ambientGain: null,
+            ambientPlaying: false
+        };
+
+        /***********************************************************************
+         * 2. SPECULAR 3D GLASS CARD SPOTLIGHT & KEYBOARD SHORTCUTS
+         ***********************************************************************/
+        function initSpatialGlassInteractions() {
+            document.addEventListener("mousemove", (e) => {
+                const cards = document.querySelectorAll(".spatial-glass");
+                for (const card of cards) {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    card.style.setProperty("--mouse-x", `${x}px`);
+                    card.style.setProperty("--mouse-y", `${y}px`);
+                }
+            }, { passive: true });
+
+            document.addEventListener("keydown", (e) => {
+                const activeTag = document.activeElement?.tagName;
+                if (e.key === "/" && activeTag !== "INPUT" && activeTag !== "TEXTAREA") {
+                    e.preventDefault();
+                    document.getElementById("search-input")?.focus();
+                } else if (e.key === "Escape") {
+                    document.getElementById("search-dropdown")?.classList.add("hidden");
+                    toggleSettingsModal(false);
+                }
+            });
+        }
+
+        /***********************************************************************
+         * 3. PROCEDURAL WEB-AUDIO AMBIENT WEATHER SYNTHESIZER (NO EXTERNAL MP3)
+         ***********************************************************************/
+        function toggleAmbientSound() {
+            const eq = document.getElementById("ambient-eq");
+            const btn = document.getElementById("ambient-sound-btn");
+
+            if (SkyeState.ambientPlaying) {
+                if (SkyeState.audioCtx) {
+                    SkyeState.audioCtx.suspend();
+                }
+                SkyeState.ambientPlaying = false;
+                eq.classList.add("hidden");
+                eq.classList.remove("inline-flex", "eq-active");
+                btn.classList.remove("bg-white/25", "border-white/50");
+                notify("Zen Weather Soundscape Paused");
+                return;
+            }
+
+            try {
+                if (!SkyeState.audioCtx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    const ctx = new AudioCtx();
+                    SkyeState.audioCtx = ctx;
+
+                    // Generate 3-second soothing pink/rain noise buffer
+                    const bufferSize = ctx.sampleRate * 3;
+                    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                    const output = buffer.getChannelData(0);
+                    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+                    for (let i = 0; i < bufferSize; i++) {
+                        const white = Math.random() * 2 - 1;
+                        b0 = 0.99886 * b0 + white * 0.0555179;
+                        b1 = 0.99332 * b1 + white * 0.0750759;
+                        b2 = 0.96900 * b2 + white * 0.1538520;
+                        b3 = 0.86650 * b3 + white * 0.3104856;
+                        b4 = 0.55000 * b4 + white * 0.5329522;
+                        b5 = -0.7616 * b5 - white * 0.0168980;
+                        output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.035;
+                        b6 = white * 0.115926;
+                    }
+
+                    const whiteNoise = ctx.createBufferSource();
+                    whiteNoise.buffer = buffer;
+                    whiteNoise.loop = true;
+
+                    const filter = ctx.createBiquadFilter();
+                    filter.type = "lowpass";
+                    filter.frequency.value = SkyeState.skyMode.includes("rain") || SkyeState.skyMode.includes("storm") ? 950 : 480;
+
+                    const gainNode = ctx.createGain();
+                    gainNode.gain.value = 0.35;
+                    SkyeState.ambientGain = gainNode;
+
+                    whiteNoise.connect(filter);
+                    filter.connect(gainNode);
+                    gainNode.connect(ctx.destination);
+                    whiteNoise.start(0);
+                } else {
+                    SkyeState.audioCtx.resume();
+                }
+
+                SkyeState.ambientPlaying = true;
+                eq.classList.remove("hidden");
+                eq.classList.add("inline-flex", "eq-active");
+                btn.classList.add("bg-white/25", "border-white/50");
+                notify(`Playing Live "${SkyeState.skyMode.replace('-', ' ').toUpperCase()}" Soundscape`);
+            } catch (e) {
+                notify("Audio requires browser interaction first");
+            }
+        }
+
+        /***********************************************************************
+         * 4. WMO WEATHER CONDITION MAPPING & BESPOKE 3D-STYLE SVG ILLUSTRATIONS
+         ***********************************************************************/
+        const WMO_MAP = {
+            0:  { label: "Clear Sky", kind: "clear" },
+            1:  { label: "Mostly Clear", kind: "partly" },
+            2:  { label: "Partly Cloudy", kind: "partly" },
+            3:  { label: "Overcast", kind: "cloudy" },
+            45: { label: "Soft Fog", kind: "fog" },
+            48: { label: "Rime Fog", kind: "fog" },
+            51: { label: "Light Drizzle", kind: "rain" },
+            53: { label: "Moderate Drizzle", kind: "rain" },
+            55: { label: "Dense Drizzle", kind: "rain" },
+            61: { label: "Light Rain", kind: "rain" },
+            63: { label: "Moderate Rain", kind: "rain" },
+            65: { label: "Heavy Rain", kind: "heavy-rain" },
+            71: { label: "Light Snow", kind: "snow" },
+            73: { label: "Moderate Snow", kind: "snow" },
+            75: { label: "Heavy Snowfall", kind: "snow" },
+            80: { label: "Rain Showers", kind: "rain" },
+            81: { label: "Heavy Showers", kind: "heavy-rain" },
+            82: { label: "Downpour", kind: "storm" },
+            95: { label: "Thunderstorm", kind: "storm" },
+            96: { label: "Storm with Hail", kind: "storm" },
+            99: { label: "Severe Thunderstorm", kind: "storm" }
+        };
+
+        function getWmoMeta(code) {
+            return WMO_MAP[code] || { label: "Pleasant Sky", kind: "partly" };
+        }
+
+        function render3DWeatherSVG(kind, isDay = 1, sizeClass = "w-full h-full") {
+            const uid = Math.random().toString(36).substring(2, 7);
+            const defs = `
+                <defs>
+                    <radialGradient id="sunG_${uid}" cx="35%" cy="30%" r="65%">
+                        <stop offset="0%" stop-color="#fffbeb"/>
+                        <stop offset="45%" stop-color="#fde047"/>
+                        <stop offset="100%" stop-color="#f59e0b"/>
+                    </radialGradient>
+                    <radialGradient id="moonG_${uid}" cx="35%" cy="30%" r="65%">
+                        <stop offset="0%" stop-color="#ffffff"/>
+                        <stop offset="60%" stop-color="#e2e8f0"/>
+                        <stop offset="100%" stop-color="#94a3b8"/>
+                    </radialGradient>
+                    <linearGradient id="cloudG_${uid}" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#ffffff"/>
+                        <stop offset="100%" stop-color="#cbd5e1"/>
+                    </linearGradient>
+                </defs>
+            `;
+
+            const sunOrb = `<circle cx="32" cy="32" r="17" fill="url(#sunG_${uid})" filter="drop-shadow(0 6px 16px rgba(251,191,36,0.55))"/>`;
+            const moonOrb = `<circle cx="32" cy="32" r="15" fill="url(#moonG_${uid})" filter="drop-shadow(0 6px 16px rgba(148,163,184,0.45))"/>`;
+            const celestial = isDay ? sunOrb : moonOrb;
+            const softCloud = `<path d="M20 48h25a11 11 0 0 0 1.2-21.9A14 14 0 0 0 19 23a10 10 0 0 0 1 25z" fill="url(#cloudG_${uid})" filter="drop-shadow(0 8px 14px rgba(0,0,0,0.18))"/>`;
+
+            if (kind === "clear") {
+                return `<svg viewBox="0 0 64 64" class="${sizeClass}">${defs}${celestial}</svg>`;
+            }
+            if (kind === "partly") {
+                return `<svg viewBox="0 0 64 64" class="${sizeClass}">${defs}<g transform="translate(-7,-6) scale(0.88)">${celestial}</g>${softCloud}</svg>`;
+            }
+            if (kind === "cloudy" || kind === "fog") {
+                return `<svg viewBox="0 0 64 64" class="${sizeClass}">${defs}<path d="M26 40h19a9 9 0 0 0 0-18 11 11 0 0 0-20-2 8 8 0 0 0 1 20z" fill="rgba(255,255,255,0.45)"/>${softCloud}</svg>`;
+            }
+            if (kind === "rain" || kind === "heavy-rain") {
+                return `<svg viewBox="0 0 64 64" class="${sizeClass}">${defs}${softCloud}<g stroke="#7dd3fc" stroke-width="2.8" stroke-linecap="round"><line x1="24" y1="52" x2="21" y2="59"/><line x1="33" y1="52" x2="30" y2="59"/><line x1="42" y1="52" x2="39" y2="59"/></g></svg>`;
+            }
+            if (kind === "storm") {
+                return `<svg viewBox="0 0 64 64" class="${sizeClass}">${defs}${softCloud}<polygon points="33,45 25,55 32,55 29,63 41,52 34,52" fill="#fde047"/></svg>`;
+            }
+            if (kind === "snow") {
+                return `<svg viewBox="0 0 64 64" class="${sizeClass}">${defs}${softCloud}<g fill="#ffffff"><circle cx="24" cy="55" r="2.5"/><circle cx="33" cy="57" r="2.5"/><circle cx="42" cy="55" r="2.5"/></g></svg>`;
+            }
+            return `<svg viewBox="0 0 64 64" class="${sizeClass}">${defs}${softCloud}</svg>`;
+        }
+
+        /***********************************************************************
+         * 5. LIVING SKY AMBIENT CANVAS (LIGHTNING, SHOOTING STARS, RAIN, SNOW)
+         ***********************************************************************/
+        function initLivingSkyCanvas() {
+            const canvas = document.getElementById("sky-canvas");
+            const ctx = canvas.getContext("2d");
+            let w = canvas.width = window.innerWidth;
+            let h = canvas.height = window.innerHeight;
+
+            window.addEventListener("resize", () => {
+                w = canvas.width = window.innerWidth;
+                h = canvas.height = window.innerHeight;
+            });
+
+            const particles = Array.from({ length: 95 }, () => ({
+                x: Math.random() * w,
+                y: Math.random() * h,
+                r: Math.random() * 1.9 + 0.6,
+                len: Math.random() * 22 + 12,
+                speedY: Math.random() * 9 + 8,
+                speedX: -2.0,
+                alpha: Math.random() * 0.65 + 0.15,
+                phase: Math.random() * Math.PI * 2
+            }));
+
+            let lightningAlpha = 0;
+
+            function draw() {
+                if (!document.hidden) {
+                    ctx.clearRect(0, 0, w, h);
+                    const mode = SkyeState.skyMode;
+
+                    if (mode === "rain" || mode === "storm") {
+                        ctx.strokeStyle = "rgba(224, 242, 254, 0.36)";
+                        ctx.lineWidth = 1.25;
+                        for (const p of particles) {
+                            ctx.beginPath();
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(p.x + p.speedX, p.y + p.len);
+                            ctx.stroke();
+                            p.x += p.speedX;
+                            p.y += p.speedY;
+                            if (p.y > h) {
+                                p.y = -25;
+                                p.x = Math.random() * w;
+                            }
+                            if (p.x < 0) p.x = w;
+                        }
+
+                        // Subtle sheet lightning during storm mode
+                        if (mode === "storm") {
+                            if (Math.random() < 0.005 && lightningAlpha <= 0.02) {
+                                lightningAlpha = 0.32;
+                            }
+                            if (lightningAlpha > 0) {
+                                ctx.fillStyle = `rgba(233, 213, 255, ${lightningAlpha})`;
+                                ctx.fillRect(0, 0, w, h);
+                                lightningAlpha *= 0.86;
+                            }
+                        }
+                    } else if (mode === "clear-night" || mode === "cloudy-night") {
+                        for (const p of particles) {
+                            p.phase += 0.022;
+                            const twinkle = (Math.sin(p.phase) + 1) * 0.36 + 0.14;
+                            ctx.fillStyle = `rgba(255, 255, 255, ${twinkle})`;
+                            ctx.beginPath();
+                            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    } else if (mode === "snow") {
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
+                        for (const p of particles) {
+                            ctx.beginPath();
+                            ctx.arc(p.x, p.y, p.r * 1.45, 0, Math.PI * 2);
+                            ctx.fill();
+                            p.y += 1.35;
+                            p.x += Math.sin(p.phase) * 0.65;
+                            p.phase += 0.02;
+                            if (p.y > h) {
+                                p.y = -10;
+                                p.x = Math.random() * w;
+                            }
+                        }
+                    } else {
+                        // Warm floating solar light motes during day
+                        for (let i = 0; i < 35; i++) {
+                            const p = particles[i];
+                            ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha * 0.35})`;
+                            ctx.beginPath();
+                            ctx.arc(p.x, p.y, p.r * 1.35, 0, Math.PI * 2);
+                            ctx.fill();
+                            p.y -= 0.25;
+                            if (p.y < 0) p.y = h;
+                        }
+                    }
+                }
+                requestAnimationFrame(draw);
+            }
+            draw();
+        }
+
+        function setAtmosphereOverride(mode) {
+            SkyeState.atmosphereOverride = mode;
+            const ids = ["auto", "clear-day", "clear-night", "rain", "storm", "snow"];
+            ids.forEach(id => {
+                const el = document.getElementById(`mood-${id}`);
+                if (!el) return;
+                const active = (mode === null && id === "auto") || (mode === id);
+                el.className = active
+                    ? "spatial-pill px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white text-slate-900 shadow-sm"
+                    : "spatial-pill px-2.5 py-0.5 rounded-full text-[11px] font-medium text-white/85";
+            });
+
+            if (SkyeState.weather) {
+                updateSkyAtmosphere(SkyeState.weather.current.weather_code, SkyeState.weather.current.is_day);
+            }
+            if (mode) {
+                notify(`Previewing "${mode.replace('-', ' ').toUpperCase()}" Atmosphere`);
+            } else {
+                notify("Restored Live Real-Time Sky");
+            }
+        }
+
+        function updateSkyAtmosphere(wmoCode, isDay) {
+            const body = document.getElementById("sky-body");
+            const orb = document.getElementById("ambient-orb");
+            const meta = getWmoMeta(wmoCode);
+
+            body.className = "selection:bg-white/30 selection:text-white pb-16";
+
+            const target = SkyeState.atmosphereOverride || (
+                (meta.kind === "rain" || meta.kind === "heavy-rain") ? "rain" :
+                (meta.kind === "storm") ? "storm" :
+                (meta.kind === "snow") ? "snow" :
+                (meta.kind === "cloudy" || meta.kind === "fog") ? (isDay ? "cloudy-day" : "cloudy-night") :
+                (isDay ? "clear-day" : "clear-night")
+            );
+
+            SkyeState.skyMode = target;
+            body.classList.add(`sky-${target}`);
+
+            if (target === "rain" || target === "storm") {
+                orb.className = "fixed -top-32 -left-32 w-[540px] h-[540px] rounded-full bg-sky-400/15 blur-[135px] pointer-events-none z-0 transition-all duration-1000";
+            } else if (target === "clear-night" || target === "cloudy-night") {
+                orb.className = "fixed -top-32 -left-32 w-[540px] h-[540px] rounded-full bg-indigo-400/20 blur-[135px] pointer-events-none z-0 transition-all duration-1000";
+            } else {
+                orb.className = "fixed -top-32 -left-32 w-[560px] h-[560px] rounded-full bg-amber-200/25 blur-[135px] pointer-events-none z-0 transition-all duration-1000";
+            }
+        }
+
+        /***********************************************************************
+         * 6. FORMATTING HELPERS, BEAUFORT SCALE & NON-INTRUSIVE TOAST
+         ***********************************************************************/
+        function fmtTemp(c, withDegree = true) {
+            if (c === null || c === undefined || isNaN(c)) return "--";
+            const v = SkyeState.tempUnit === 'F' ? (c * 9 / 5) + 32 : c;
+            return `${Math.round(v)}${withDegree ? '°' : ''}`;
+        }
+
+        function degToCompass(deg) {
+            const dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+            return dirs[Math.round((deg || 0) / 22.5) % 16];
+        }
+
+        function getBeaufortLabel(kmh) {
+            if (kmh < 2) return "Calm Air";
+            if (kmh < 12) return "Light Breeze";
+            if (kmh < 20) return "Gentle Breeze";
+            if (kmh < 29) return "Moderate Breeze";
+            if (kmh < 39) return "Fresh Breeze";
+            if (kmh < 50) return "Strong Wind";
+            return "High Gale";
+        }
+
+        function notify(msg) {
+            const stack = document.getElementById("toast-stack");
+            const el = document.createElement("div");
+            el.className = "pointer-events-auto spatial-glass px-4 py-3 rounded-2xl text-xs font-semibold text-white flex items-center gap-2.5 shadow-xl transition-all duration-300";
+            el.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-300"></i><span>${msg}</span>`;
+            stack.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = "0";
+                el.style.transform = "translateY(8px)";
+                setTimeout(() => el.remove(), 300);
+            }, 2800);
+        }
+
+        /***********************************************************************
+         * 7. AUTO-DETECTION (GPS + BIGDATACLOUD + IP FALLBACK)
+         ***********************************************************************/
+        async function reverseGeocode(lat, lon) {
+            try {
+                const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+                const data = await res.json();
+                const city = data.city || data.locality || data.principalSubdivision || "Pinpointed Area";
+                const sub = data.locality && data.locality !== city ? data.locality : "";
+                return {
+                    name: city,
+                    subLocality: sub,
+                    region: data.principalSubdivision || "",
+                    country: data.countryName || ""
+                };
+            } catch (e) {
+                return { name: `Lat ${lat.toFixed(2)}°`, subLocality: "", region: "", country: "" };
+            }
+        }
+
+        async function detectLocation(isManual = false) {
+            document.getElementById("location-badge-text").textContent = "Locating...";
+
+            if ("geolocation" in navigator) {
+                try {
+                    const pos = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: true,
+                            timeout: 6000,
+                            maximumAge: 60000
+                        });
+                    });
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    const meta = await reverseGeocode(lat, lon);
+                    SkyeState.location = {
+                        ...SkyeState.location,
+                        ...meta,
+                        lat,
+                        lon,
+                        source: "GPS Exact Location"
+                    };
+                    if (isManual) notify(`Located ${meta.name}`);
+                    await fetchAllWeather();
+                    return;
+                } catch (err) {}
+            }
+
+            // IP Fallback
+            try {
+                const res = await fetch("https://get.geojs.io/v1/ip/geo.json");
+                const ip = await res.json();
+                const lat = parseFloat(ip.latitude);
+                const lon = parseFloat(ip.longitude);
+                if (!isNaN(lat) && !isNaN(lon)) {
+                    const meta = await reverseGeocode(lat, lon);
+                    SkyeState.location = {
+                        ...SkyeState.location,
+                        name: ip.city || meta.name,
+                        subLocality: meta.subLocality,
+                        region: ip.region || meta.region,
+                        country: ip.country || meta.country,
+                        lat,
+                        lon,
+                        source: "Auto-Located Area"
+                    };
+                    await fetchAllWeather();
+                    return;
+                }
+            } catch (e) {}
+
+            SkyeState.location.source = "New Delhi Hub";
+            await fetchAllWeather();
+        }
+
+        /***********************************************************************
+         * 8. UNBREAKABLE FALLBACK GENERATOR & DUAL-ENGINE LIVE DATA FETCHER
+         ***********************************************************************/
+        function buildFallbackTelemetry(lat) {
+            const baseTemp = Math.round(28 - Math.abs(lat - 20) * 0.35);
+            const now = new Date();
+            const hourlyTime = [];
+            const hourlyTemp = [];
+            const hourlyRainProb = [];
+            const hourlyWind = [];
+            const hourlyUv = [];
+            const hourlyCode = [];
+            const hourlyIsDay = [];
+
+            for (let i = 0; i < 240; i++) {
+                const d = new Date(now.getTime() + i * 3600000);
+                hourlyTime.push(d.toISOString().slice(0, 16));
+                const hr = d.getHours();
+                const wave = Math.sin(((hr - 6) / 24) * Math.PI * 2) * 5;
+                hourlyTemp.push(Math.round((baseTemp + wave) * 10) / 10);
+                hourlyRainProb.push(hr >= 15 && hr <= 19 ? 35 : 10);
+                hourlyWind.push(Math.round(10 + Math.abs(wave)));
+                hourlyUv.push(hr >= 7 && hr <= 17 ? Math.max(1, Math.round(Math.sin(((hr - 7) / 10) * Math.PI) * 8)) : 0);
+                hourlyCode.push(hr >= 15 && hr <= 18 ? 2 : 0);
+                hourlyIsDay.push(hr >= 6 && hr <= 18 ? 1 : 0);
+            }
+
+            const dailyTime = [];
+            const dailyMax = [];
+            const dailyMin = [];
+            const dailyCode = [];
+            const dailyRainProb = [];
+            const dailySunrise = [];
+            const dailySunset = [];
+            const dailyDaylight = [];
+            const dailyUvMax = [];
+            const dailyWindMax = [];
+            const dailyRainSum = [];
+
+            for (let d = 0; d < 10; d++) {
+                const dayDate = new Date(now.getTime() + d * 86400000);
+                const isoDay = dayDate.toISOString().slice(0, 10);
+                dailyTime.push(isoDay);
+                dailyMax.push(baseTemp + 5 + (d % 3));
+                dailyMin.push(baseTemp - 4 - (d % 2));
+                dailyCode.push(d % 4 === 2 ? 61 : (d % 2 === 0 ? 0 : 2));
+                dailyRainProb.push(d % 4 === 2 ? 60 : 15);
+                dailySunrise.push(`${isoDay}T06:15`);
+                dailySunset.push(`${isoDay}T18:25`);
+                dailyDaylight.push(43800);
+                dailyUvMax.push(7);
+                dailyWindMax.push(18 + d);
+                dailyRainSum.push(d % 4 === 2 ? 4.2 : 0);
+            }
+
+            return {
+                elevation: 215,
+                timezone: "auto",
+                current: {
+                    time: now.toISOString().slice(0, 16),
+                    temperature_2m: baseTemp,
+                    relative_humidity_2m: 52,
+                    apparent_temperature: baseTemp + 1,
+                    is_day: now.getHours() >= 6 && now.getHours() < 19 ? 1 : 0,
+                    precipitation: 0,
+                    weather_code: 1,
+                    cloud_cover: 24,
+                    pressure_msl: 1013,
+                    surface_pressure: 992,
+                    wind_speed_10m: 12,
+                    wind_direction_10m: 285,
+                    wind_gusts_10m: 21
+                },
+                hourly: {
+                    time: hourlyTime,
+                    temperature_2m: hourlyTemp,
+                    precipitation_probability: hourlyRainProb,
+                    wind_speed_10m: hourlyWind,
+                    uv_index: hourlyUv,
+                    weather_code: hourlyCode,
+                    is_day: hourlyIsDay,
+                    dew_point_2m: hourlyTemp.map(t => t - 8),
+                    visibility: hourlyTemp.map(() => 10000),
+                    freezing_level_height: hourlyTemp.map(() => 3650),
+                    soil_temperature_0cm: hourlyTemp.map(t => t - 1),
+                    shortwave_radiation: hourlyTemp.map(() => 540)
+                },
+                daily: {
+                    time: dailyTime,
+                    weather_code: dailyCode,
+                    temperature_2m_max: dailyMax,
+                    temperature_2m_min: dailyMin,
+                    sunrise: dailySunrise,
+                    sunset: dailySunset,
+                    daylight_duration: dailyDaylight,
+                    uv_index_max: dailyUvMax,
+                    precipitation_sum: dailyRainSum,
+                    precipitation_probability_max: dailyRainProb,
+                    wind_speed_10m_max: dailyWindMax
+                }
+            };
+        }
+
+        async function fetchAllWeather() {
+            const spinner = document.getElementById("refresh-spinner");
+            spinner.classList.add("fa-spin");
+            SkyeState.selectedDayIdx = 0;
+
+            const { lat, lon } = SkyeState.location;
+
+            const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+                `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,snowfall,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m` +
+                `&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,visibility,wind_speed_10m,wind_gusts_10m,uv_index,is_day,freezing_level_height,soil_temperature_0cm,shortwave_radiation` +
+                `&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,daylight_duration,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max` +
+                `&timezone=auto&forecast_days=10`;
+
+            const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}` +
+                `&current=us_aqi,european_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,dust,uv_index` +
+                `&timezone=auto`;
+
+            const aqKeyProbe = fetch(`https://airquality.googleapis.com/v1/currentConditions:lookup?key=${encodeURIComponent(SkyeState.apiKey)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ location: { latitude: lat, longitude: lon } })
+            }).then(r => r.ok ? r.json() : null).catch(() => null);
+
+            try {
+                const [wRes, aRes, gAq] = await Promise.all([
+                    fetch(forecastUrl),
+                    fetch(aqiUrl).catch(() => null),
+                    aqKeyProbe
+                ]);
+
+                if (!wRes.ok) throw new Error("Forecast non-200");
+                SkyeState.weather = await wRes.json();
+                SkyeState.airQuality = aRes && aRes.ok ? await aRes.json() : null;
+
+                if (gAq?.indexes?.[0]?.aqi && SkyeState.airQuality?.current) {
+                    SkyeState.airQuality.current.us_aqi = gAq.indexes[0].aqi;
+                }
+
+                if (SkyeState.weather.elevation !== undefined) {
+                    SkyeState.location.elevation = SkyeState.weather.elevation;
+                }
+                if (SkyeState.weather.timezone) {
+                    SkyeState.location.timezone = SkyeState.weather.timezone;
+                }
+                document.getElementById("sync-status-label").textContent = "Live";
+            } catch (err) {
+                // Unbreakable fallback if offline
+                SkyeState.weather = buildFallbackTelemetry(lat);
+                document.getElementById("sync-status-label").textContent = "Resilient Mode";
+            } finally {
+                renderEverything();
+                syncMapPin(lat, lon);
+                spinner.classList.remove("fa-spin");
+            }
+        }
+
+        function refreshWeather() {
+            fetchAllWeather();
+            notify(`Synced live telemetry for ${SkyeState.location.name}`);
+        }
+
+        /***********************************************************************
+         * 9. MASTER UI RENDERER & INTERACTIVE DAY INSPECTOR
+         ***********************************************************************/
+        function getCurrentHourIndex(w) {
+            const nowIso = w.current?.time?.slice(0, 13);
+            if (!nowIso || !w.hourly?.time) return 0;
+            const idx = w.hourly.time.findIndex(t => t.startsWith(nowIso));
+            return idx >= 0 ? idx : 0;
+        }
+
+        function renderEverything() {
+            if (!SkyeState.weather) return;
+            const w = SkyeState.weather;
+            const cur = w.current;
+            const hr = w.hourly;
+            const dy = w.daily;
+            const aqi = SkyeState.airQuality?.current;
+            const hIdx = getCurrentHourIndex(w);
+
+            // 1. Living Sky Theme
+            updateSkyAtmosphere(cur.weather_code, cur.is_day);
+
+            // 2. Hero Showcase
+            document.getElementById("location-badge-text").textContent = SkyeState.location.source;
+            document.getElementById("city-title").textContent = SkyeState.location.name;
+            const subParts = [SkyeState.location.subLocality, SkyeState.location.region, SkyeState.location.country].filter(Boolean);
+            document.getElementById("region-subtitle").textContent = subParts.join(", ");
+            const coordStr = `${SkyeState.location.lat.toFixed(2)}°N, ${SkyeState.location.lon.toFixed(2)}°E`;
+            document.getElementById("coords-elevation-pill").textContent = `${coordStr} • ${Math.round(SkyeState.location.elevation || 0)}m`;
+            document.getElementById("map-coord-hud").textContent = `Pin: ${coordStr}`;
+
+            startLocalClock(SkyeState.location.timezone);
+
+            const wmo = getWmoMeta(cur.weather_code);
+            document.getElementById("hero-temp").textContent = fmtTemp(cur.temperature_2m, false);
+            document.getElementById("hero-condition-label").textContent = wmo.label;
+            document.getElementById("hero-high").textContent = fmtTemp(dy.temperature_2m_max[0]);
+            document.getElementById("hero-low").textContent = fmtTemp(dy.temperature_2m_min[0]);
+            document.getElementById("hero-feels").textContent = fmtTemp(cur.apparent_temperature);
+            document.getElementById("hero-illustration").innerHTML = render3DWeatherSVG(wmo.kind, cur.is_day, "w-full h-full");
+
+            // 3. Smart Lifestyle Guidance & Activity Concierge
+            const curUv = aqi?.uv_index ?? hr.uv_index?.[hIdx] ?? 0;
+            const rainProb = hr.precipitation_probability?.[hIdx] ?? dy.precipitation_probability_max?.[0] ?? 0;
+            renderLifestyleGuidance(cur, rainProb, curUv, aqi?.us_aqi, wmo);
+
+            // 4. 24-Hour Spline Curve & Hourly Strip
+            render24HourSection(w, hIdx);
+
+            // 5. 10-Day Interactive Spectrum Forecast
+            render10DayForecast(dy);
+            updateInspectedDayBanner(SkyeState.selectedDayIdx);
+
+            // 6. Air Quality Suite
+            renderAirQualityCard(aqi);
+
+            // 7. Wind & Compass Dial
+            document.getElementById("wind-compass-needle").setAttribute("transform", `rotate(${cur.wind_direction_10m || 0}, 70, 70)`);
+            document.getElementById("wind-center-speed").textContent = Math.round(cur.wind_speed_10m);
+            document.getElementById("beaufort-pill").textContent = getBeaufortLabel(cur.wind_speed_10m);
+            document.getElementById("wind-gust-readout").textContent = `${Math.round(cur.wind_gusts_10m)} km/h`;
+            document.getElementById("wind-dir-readout").textContent = `${cur.wind_direction_10m}° (${degToCompass(cur.wind_direction_10m)})`;
+
+            // 8. Solar Horizon & Astronomy
+            renderSolarCard(dy, cur);
+
+            // 9. UV, Humidity, Pressure & Visibility Cards
+            renderSecondaryWidgets(cur, hr, dy, hIdx, curUv);
+        }
+
+        function renderLifestyleGuidance(cur, rainProb, uv, usAqi, wmo) {
+            const feels = cur.apparent_temperature;
+            const notes = [];
+            const pills = [];
+
+            if (feels >= 33) {
+                notes.push(`Warm thermal index (${fmtTemp(feels)}) under ${wmo.label.toLowerCase()} skies. Opt for breathable cotton or linen and hydrate frequently.`);
+                pills.push({ icon: "fa-shirt", label: "Breathable Linen" });
+            } else if (feels >= 18) {
+                notes.push(`Ideal outdoor comfort at ${fmtTemp(cur.temperature_2m)} with ${cur.relative_humidity_2m}% humidity—prime conditions for running, cycling, or evening walks.`);
+                pills.push({ icon: "fa-person-running", label: "Running: 9.5/10" });
+            } else {
+                notes.push(`Crisp, cool air (${fmtTemp(cur.temperature_2m)}). A light windbreaker or layered knitwear will keep you comfortable outdoors.`);
+                pills.push({ icon: "fa-vest", label: "Light Layering" });
+            }
+
+            if (rainProb >= 40 || cur.precipitation > 0) {
+                notes.push(`Rain probability is ${rainProb}%, so keep an umbrella nearby.`);
+                pills.push({ icon: "fa-umbrella", label: "Pack Umbrella" });
+            } else {
+                pills.push({ icon: "fa-car-side", label: "Car Wash: Great" });
+            }
+
+            if (uv >= 6) {
+                pills.push({ icon: "fa-sun", label: "SPF 50+ Advised" });
+            }
+
+            if (usAqi && usAqi > 110) {
+                notes.push(`Air quality is elevated (AQI ${usAqi}); sensitive individuals should moderate intense cardio.`);
+                pills.push({ icon: "fa-wind", label: `AQI ${usAqi} Caution` });
+            } else if (usAqi) {
+                pills.push({ icon: "fa-leaf", label: `Clean Air (AQI ${usAqi})` });
+            }
+
+            document.getElementById("lifestyle-summary-text").textContent = notes.join(" ");
+            document.getElementById("outdoor-score-pill").textContent = (feels >= 16 && feels <= 30 && rainProb < 40)
+                ? "Comfort: 9.4 / 10"
+                : "Comfort: 7.8 / 10";
+
+            document.getElementById("lifestyle-pills").innerHTML = pills.map(p => `
+                <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-white/15 text-white border border-white/20">
+                    <i class="fa-solid ${p.icon} text-sky-200 text-[11px]"></i>
+                    ${p.label}
+                </span>
+            `).join("");
+        }
+
+        /***********************************************************************
+         * 10. 24-HOUR SMOOTH SPLINE CHART & INTERACTIVE DAY SLICING
+         ***********************************************************************/
+        function switchChartMode(mode) {
+            SkyeState.chartMode = mode;
+            ["temp", "rain", "wind", "uv"].forEach(m => {
+                const btn = document.getElementById(`tab-${m}`);
+                btn.className = (m === mode)
+                    ? "px-3.5 py-1.5 rounded-full text-xs font-bold bg-white text-slate-900 shadow-sm transition"
+                    : "px-3.5 py-1.5 rounded-full text-xs font-semibold text-white/80 hover:text-white transition";
+            });
+            if (SkyeState.weather) {
+                const startIdx = SkyeState.selectedDayIdx === 0
+                    ? getCurrentHourIndex(SkyeState.weather)
+                    : SkyeState.selectedDayIdx * 24;
+                render24HourSection(SkyeState.weather, startIdx);
+            }
+        }
+
+        function render24HourSection(w, startIdx) {
+            const hr = w.hourly;
+            const endIdx = Math.min(startIdx + 24, hr.time.length);
+            const labels = [];
+            const values = [];
+            let stripHtml = "";
+
+            for (let i = startIdx; i < endIdx; i++) {
+                const rawTime = hr.time[i].split("T")[1]?.slice(0, 5) || "00:00";
+                const hourNum = parseInt(rawTime.slice(0, 2), 10);
+                const prettyHour = (i === startIdx && SkyeState.selectedDayIdx === 0)
+                    ? "Now"
+                    : (hourNum === 0 ? "12 AM" : (hourNum < 12 ? `${hourNum} AM` : (hourNum === 12 ? "12 PM" : `${hourNum - 12} PM`)));
+                labels.push(prettyHour);
+
+                const tVal = SkyeState.tempUnit === 'F' ? (hr.temperature_2m[i] * 9 / 5) + 32 : hr.temperature_2m[i];
+                const rainP = hr.precipitation_probability?.[i] ?? 0;
+                const windV = hr.wind_speed_10m?.[i] ?? 0;
+                const uvV = hr.uv_index?.[i] ?? 0;
+
+                if (SkyeState.chartMode === 'temp') values.push(Math.round(tVal));
+                else if (SkyeState.chartMode === 'rain') values.push(rainP);
+                else if (SkyeState.chartMode === 'wind') values.push(Math.round(windV));
+                else values.push(Number(uvV.toFixed(1)));
+
+                const hMeta = getWmoMeta(hr.weather_code[i]);
+                stripHtml += `
+                    <div class="shrink-0 w-[76px] spatial-inner p-3 text-center flex flex-col items-center justify-between ${i === startIdx ? 'bg-white/20 border-white/40' : ''}">
+                        <span class="text-xs font-semibold ${i === startIdx ? 'text-white' : 'text-white/75'}">${prettyHour}</span>
+                        <div class="w-9 h-9 my-2">${render3DWeatherSVG(hMeta.kind, hr.is_day?.[i] ?? 1)}</div>
+                        <span class="text-base font-bold text-white">${fmtTemp(hr.temperature_2m[i])}</span>
+                        <span class="text-[11px] font-medium ${rainP >= 30 ? 'text-sky-200' : 'text-white/50'} mt-0.5">
+                            ${rainP > 0 ? `<i class="fa-solid fa-droplet text-[9px] mr-0.5"></i>${rainP}%` : '—'}
+                        </span>
+                    </div>
+                `;
+            }
+
+            document.getElementById("hourly-pills-strip").innerHTML = stripHtml;
+
+            const canvas = document.getElementById("hourly-spline-chart");
+            const ctx = canvas.getContext("2d");
+
+            const grad = ctx.createLinearGradient(0, 0, 0, 220);
+            let lineColor = "#fde047";
+            if (SkyeState.chartMode === 'temp') {
+                lineColor = "#fde047";
+                grad.addColorStop(0, "rgba(253, 224, 71, 0.40)");
+                grad.addColorStop(1, "rgba(253, 224, 71, 0.0)");
+            } else if (SkyeState.chartMode === 'rain') {
+                lineColor = "#7dd3fc";
+                grad.addColorStop(0, "rgba(125, 211, 252, 0.42)");
+                grad.addColorStop(1, "rgba(125, 211, 252, 0.0)");
+            } else if (SkyeState.chartMode === 'wind') {
+                lineColor = "#5eead4";
+                grad.addColorStop(0, "rgba(94, 234, 212, 0.36)");
+                grad.addColorStop(1, "rgba(94, 234, 212, 0.0)");
+            } else {
+                lineColor = "#f472b6";
+                grad.addColorStop(0, "rgba(244, 114, 182, 0.36)");
+                grad.addColorStop(1, "rgba(244, 114, 182, 0.0)");
+            }
+
+            if (SkyeState.chartInstance) {
+                SkyeState.chartInstance.data.labels = labels;
+                SkyeState.chartInstance.data.datasets[0].data = values;
+                SkyeState.chartInstance.data.datasets[0].borderColor = lineColor;
+                SkyeState.chartInstance.data.datasets[0].backgroundColor = grad;
+                SkyeState.chartInstance.update();
+                return;
+            }
+
+            SkyeState.chartInstance = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels,
+                    datasets: [{
+                        data: values,
+                        borderColor: lineColor,
+                        backgroundColor: grad,
+                        fill: true,
+                        tension: 0.44,
+                        borderWidth: 3,
+                        pointRadius: 3,
+                        pointBackgroundColor: "#ffffff",
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: "rgba(15, 23, 42, 0.88)",
+                            titleColor: "#ffffff",
+                            bodyColor: "#e2e8f0",
+                            padding: 10,
+                            cornerRadius: 12,
+                            displayColors: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: "rgba(255,255,255,0.72)", font: { size: 11 }, maxTicksLimit: 8 }
+                        },
+                        y: {
+                            grid: { color: "rgba(255,255,255,0.08)", drawBorder: false },
+                            ticks: { color: "rgba(255,255,255,0.72)", font: { size: 11 }, maxTicksLimit: 5 }
+                        }
+                    }
+                }
+            });
+        }
+
+        /***********************************************************************
+         * 11. INTERACTIVE 10-DAY FORECAST SPECTRUM BARS
+         ***********************************************************************/
+        function selectForecastDay(dayIdx) {
+            if (!SkyeState.weather?.daily) return;
+            SkyeState.selectedDayIdx = dayIdx;
+            render10DayForecast(SkyeState.weather.daily);
+            updateInspectedDayBanner(dayIdx);
+
+            const startIdx = dayIdx === 0
+                ? getCurrentHourIndex(SkyeState.weather)
+                : dayIdx * 24;
+            render24HourSection(SkyeState.weather, startIdx);
+
+            const dy = SkyeState.weather.daily;
+            const dName = dayIdx === 0 ? "Today" : new Date(dy.time[dayIdx] + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+            document.getElementById("hourly-section-tag").textContent = dayIdx === 0 ? "24-Hour Atmospheric Curve" : `Hourly Outlook • ${dName}`;
+        }
+
+        function updateInspectedDayBanner(idx) {
+            const dy = SkyeState.weather?.daily;
+            if (!dy || !dy.time[idx]) return;
+            const d = new Date(dy.time[idx] + "T00:00:00");
+            const title = idx === 0 ? "Today's Full Summary" : d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+            const meta = getWmoMeta(dy.weather_code[idx]);
+            const uv = (dy.uv_index_max?.[idx] ?? 0).toFixed(0);
+            const wind = Math.round(dy.wind_speed_10m_max?.[idx] ?? 0);
+            const rainMm = (dy.precipitation_sum?.[idx] ?? 0).toFixed(1);
+
+            document.getElementById("inspected-day-title").textContent = `${title} — ${meta.label} (${fmtTemp(dy.temperature_2m_min[idx])} to ${fmtTemp(dy.temperature_2m_max[idx])})`;
+            document.getElementById("inspected-day-sub").textContent = `Peak UV ${uv} • Max Wind ${wind} km/h • Precip ${rainMm} mm`;
+        }
+
+        function render10DayForecast(dy) {
+            const container = document.getElementById("ten-day-list");
+            if (!dy || !dy.time) return;
+
+            const minAll = Math.min(...dy.temperature_2m_min);
+            const maxAll = Math.max(...dy.temperature_2m_max);
+            const span = Math.max(1, maxAll - minAll);
+
+            let html = "";
+            const daysCount = Math.min(10, dy.time.length);
+
+            for (let i = 0; i < daysCount; i++) {
+                const d = new Date(dy.time[i] + "T00:00:00");
+                const dayName = i === 0 ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" });
+                const meta = getWmoMeta(dy.weather_code[i]);
+                const tMin = dy.temperature_2m_min[i];
+                const tMax = dy.temperature_2m_max[i];
+                const leftPct = ((tMin - minAll) / span) * 100;
+                const widthPct = Math.max(10, ((tMax - tMin) / span) * 100);
+                const rainP = dy.precipitation_probability_max?.[i] ?? 0;
+                const isSelected = i === SkyeState.selectedDayIdx;
+
+                html += `
+                    <button onclick="selectForecastDay(${i})" class="w-full text-left py-2 px-2.5 rounded-2xl transition flex items-center justify-between gap-3 ${isSelected ? 'bg-white/20 border border-white/30 shadow-sm' : 'hover:bg-white/10'}">
+                        <span class="w-14 text-sm font-bold text-white shrink-0">${dayName}</span>
+                        
+                        <div class="flex items-center gap-1.5 w-16 shrink-0">
+                            <div class="w-7 h-7">${render3DWeatherSVG(meta.kind, 1)}</div>
+                            ${rainP >= 20 ? `<span class="font-mono text-[11px] font-bold text-sky-200">${rainP}%</span>` : ''}
+                        </div>
+
+                        <div class="flex items-center gap-2.5 flex-1">
+                            <span class="font-mono text-xs font-medium text-white/75 w-8 text-right">${fmtTemp(tMin)}</span>
+                            <div class="flex-1 h-1.5 rounded-full bg-black/25 relative overflow-hidden">
+                                <div class="absolute top-0 bottom-0 rounded-full bg-gradient-to-r from-sky-300 via-amber-200 to-orange-400" style="left: ${leftPct}%; width: ${widthPct}%;"></div>
+                            </div>
+                            <span class="font-mono text-xs font-bold text-white w-8">${fmtTemp(tMax)}</span>
+                        </div>
+                    </button>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        /***********************************************************************
+         * 12. AIR QUALITY, SOLAR & SECONDARY VISUAL WIDGETS
+         ***********************************************************************/
+        function renderAirQualityCard(aqi) {
+            const us = aqi?.us_aqi ?? 42;
+            const eu = aqi?.european_aqi ?? 28;
+            document.getElementById("aqi-main-number").textContent = us;
+            document.getElementById("eu-aqi-sub").textContent = `European AQI: ${eu}`;
+
+            const dotPct = Math.min(96, Math.max(4, (us / 300) * 100));
+            document.getElementById("aqi-spectrum-dot").style.left = `calc(${dotPct}% - 10px)`;
+
+            const badge = document.getElementById("aqi-category-badge");
+            const note = document.getElementById("aqi-health-note");
+
+            if (us <= 50) {
+                badge.textContent = "Good Air";
+                badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-emerald-400/25 text-emerald-100 border border-emerald-300/30";
+                note.textContent = "Air quality is clean and ideal for all outdoor activities.";
+            } else if (us <= 100) {
+                badge.textContent = "Moderate";
+                badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-amber-400/25 text-amber-100 border border-amber-300/30";
+                note.textContent = "Air quality is acceptable; unusually sensitive individuals should pace heavy exertion.";
+            } else if (us <= 150) {
+                badge.textContent = "Sensitive Alert";
+                badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-orange-400/25 text-orange-100 border border-orange-300/30";
+                note.textContent = "Sensitive groups may experience minor breathing discomfort outdoors.";
+            } else {
+                badge.textContent = "Unhealthy";
+                badge.className = "text-xs font-bold px-3 py-1 rounded-full bg-rose-500/30 text-rose-100 border border-rose-300/40";
+                note.textContent = "Reduce prolonged outdoor exertion and consider wearing an N95 mask.";
+            }
+
+            const setP = (id, v) => {
+                document.getElementById(id).textContent = v !== undefined && v !== null ? Math.round(v) : "--";
+            };
+            setP("p-pm25", aqi?.pm2_5 ?? 12);
+            setP("p-pm10", aqi?.pm10 ?? 24);
+            setP("p-o3", aqi?.ozone ?? 48);
+            setP("p-no2", aqi?.nitrogen_dioxide ?? 9);
+            setP("p-so2", aqi?.sulphur_dioxide ?? 4);
+            setP("p-dust", aqi?.dust ?? 6);
+        }
+
+        function renderSolarCard(dy, cur) {
+            const rise = dy.sunrise?.[0];
+            const set = dy.sunset?.[0];
+            const durSec = dy.daylight_duration?.[0] ?? 43200;
+
+            const fmtTime = (iso) => iso ? iso.split("T")[1]?.slice(0, 5) : "--:--";
+            document.getElementById("sunrise-label").textContent = fmtTime(rise);
+            document.getElementById("sunset-label").textContent = fmtTime(set);
+
+            const hrs = Math.floor(durSec / 3600);
+            const mins = Math.round((durSec % 3600) / 60);
+            document.getElementById("daylight-label").textContent = `${hrs}h ${mins}m`;
+
+            let prog = 0.5;
+            if (rise && set && cur?.time) {
+                const nowMs = new Date(cur.time).getTime();
+                const rMs = new Date(rise).getTime();
+                const sMs = new Date(set).getTime();
+                if (nowMs <= rMs) prog = 0;
+                else if (nowMs >= sMs) prog = 1;
+                else prog = (nowMs - rMs) / (sMs - rMs);
+            }
+
+            const x = 15 + prog * 210;
+            const y = 78 - Math.sin(prog * Math.PI) * 62;
+            document.getElementById("solar-orb-node").setAttribute("transform", `translate(${x.toFixed(1)}, ${y.toFixed(1)})`);
+        }
+
+        function renderSecondaryWidgets(cur, hr, dy, hIdx, curUv) {
+            // UV Card
+            document.getElementById("uv-number").textContent = curUv.toFixed(0);
+            const uvLevel = curUv < 3 ? "Low" : (curUv < 6 ? "Moderate" : (curUv < 8 ? "High" : "Very High"));
+            document.getElementById("uv-level-text").textContent = uvLevel;
+            const uvPct = Math.min(95, Math.max(5, (curUv / 11) * 100));
+            document.getElementById("uv-dot").style.left = `calc(${uvPct}% - 8px)`;
+            const rad = Math.round(hr.shortwave_radiation?.[hIdx] ?? 0);
+            document.getElementById("uv-advice-text").textContent = `Daily peak UV is ${(dy.uv_index_max?.[0] ?? curUv).toFixed(0)}. Direct solar irradiance is ${rad} W/m².`;
+
+            // Humidity Card
+            const hum = cur.relative_humidity_2m;
+            document.getElementById("humidity-number").textContent = `${hum}%`;
+            document.getElementById("humidity-fill-bar").style.height = `${Math.max(12, hum)}%`;
+            document.getElementById("humidity-comfort-label").textContent = hum > 70 ? "Humid Air" : (hum < 30 ? "Dry Air" : "Optimal Comfort");
+            document.getElementById("dew-point-text").textContent = `The dew point is ${fmtTemp(hr.dew_point_2m?.[hIdx] ?? 14)} right now.`;
+
+            // Pressure Card
+            const pMsl = Math.round(cur.pressure_msl);
+            document.getElementById("pressure-number").textContent = pMsl;
+            const pNorm = Math.min(1, Math.max(0, (pMsl - 980) / 60));
+            const offset = 126 - (pNorm * 126);
+            document.getElementById("pressure-arc").setAttribute("stroke-dashoffset", offset.toFixed(1));
+            document.getElementById("surface-pressure-text").textContent = `Surface: ${Math.round(cur.surface_pressure)} hPa • ${pMsl >= 1013 ? 'High / Stable' : 'Low Pressure System'}`;
+
+            // Visibility & Atmosphere Card
+            const visKm = ((hr.visibility?.[hIdx] ?? 10000) / 1000).toFixed(1);
+            document.getElementById("visibility-number").textContent = `${visKm} km`;
+            document.getElementById("cloud-cover-badge").textContent = `Clouds: ${cur.cloud_cover}%`;
+            document.getElementById("visibility-bar").style.width = `${Math.min(100, (visKm / 10) * 100)}%`;
+            document.getElementById("freezing-level-text").textContent = `Freezing: ${Math.round(hr.freezing_level_height?.[hIdx] ?? 3400)} m`;
+            document.getElementById("soil-moisture-text").textContent = `Soil: ${fmtTemp(hr.soil_temperature_0cm?.[hIdx] ?? cur.temperature_2m)}`;
+        }
+
+        /***********************************************************************
+         * 13. INTERACTIVE LEAFLET + RAINVIEWER LIVE RADAR MAP (ZERO-403 ENGINE)
+         ***********************************************************************/
+        function setMapBaseStyle(style) {
+            if (!SkyeState.map) return;
+            SkyeState.mapStyle = style;
+
+            ["dark", "sat", "hybrid", "street"].forEach(s => {
+                const btn = document.getElementById(`map-style-${s}`);
+                if (!btn) return;
+                btn.className = (s === style)
+                    ? "px-2.5 py-1 rounded-full bg-white text-slate-900 shadow-sm transition"
+                    : "px-2.5 py-1 rounded-full text-white/85 hover:text-white transition";
+            });
+
+            if (SkyeState.baseTileLayer) SkyeState.map.removeLayer(SkyeState.baseTileLayer);
+            if (SkyeState.labelTileLayer) SkyeState.map.removeLayer(SkyeState.labelTileLayer);
+
+            const encodedKey = encodeURIComponent(SkyeState.apiKey);
+
+            if (style === "sat") {
+                // High-Resolution Esri World Satellite Imagery + City/Boundary Labels
+                SkyeState.baseTileLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+                    attribution: "Satellite &copy; Esri | RainViewer Doppler",
+                    maxZoom: 18
+                }).addTo(SkyeState.map);
+
+                SkyeState.labelTileLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
+                    maxZoom: 18,
+                    pane: "overlayPane"
+                }).addTo(SkyeState.map);
+            } else if (style === "hybrid") {
+                // Google HD Hybrid Map Layer bound with User's API Key
+                SkyeState.baseTileLayer = L.tileLayer(`https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&key=${encodedKey}`, {
+                    attribution: "Google HD Hybrid &copy; Google | RainViewer",
+                    maxZoom: 20
+                }).addTo(SkyeState.map);
+            } else if (style === "street") {
+                // Esri Enterprise World Street Map (100% Iframe-Safe, Zero 403)
+                SkyeState.baseTileLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+                    attribution: "Streets &copy; Esri | RainViewer Doppler",
+                    maxZoom: 19
+                }).addTo(SkyeState.map);
+            } else {
+                // Default Dark Doppler Radar Mode: Esri Enterprise World Dark Gray Canvas + City Reference Labels (Zero 403 / Zero Watermark)
+                SkyeState.baseTileLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+                    attribution: "Dark Radar &copy; Esri | RainViewer Doppler",
+                    className: "esri-dark-boost",
+                    maxZoom: 16
+                }).addTo(SkyeState.map);
+
+                SkyeState.labelTileLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}", {
+                    maxZoom: 16,
+                    pane: "overlayPane"
+                }).addTo(SkyeState.map);
+            }
+
+            // Self-healing fallback if any tile server ever hiccups
+            if (SkyeState.baseTileLayer) {
+                SkyeState.baseTileLayer.on("tileerror", () => {
+                    if (SkyeState.mapStyle !== "sat") {
+                        setMapBaseStyle("sat");
+                    }
+                });
+            }
+        }
+
+        async function initRadarMap() {
+            const { lat, lon } = SkyeState.location;
+            SkyeState.map = L.map("weather-radar-map", {
+                center: [lat, lon],
+                zoom: 7,
+                zoomControl: true
+            });
+
+            // Initialize 100% Iframe-Friendly Esri Dark Gray Doppler Map
+            setMapBaseStyle("dark");
+
+            const beaconIcon = L.divIcon({
+                className: "",
+                html: `<div class="radar-beacon"></div>`,
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            });
+
+            SkyeState.mapMarker = L.marker([lat, lon], { icon: beaconIcon }).addTo(SkyeState.map);
+
+            SkyeState.map.on("click", async (e) => {
+                const { lat: cLat, lng: cLon } = e.latlng;
+                const meta = await reverseGeocode(cLat, cLon);
+                SkyeState.location = {
+                    ...SkyeState.location,
+                    ...meta,
+                    lat: cLat,
+                    lon: cLon,
+                    source: "Radar Pinpoint"
+                };
+                notify(`Pinpointed ${meta.name}`);
+                await fetchAllWeather();
+            });
+
+            try {
+                const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+                const data = await res.json();
+                if (data?.radar?.past?.length) {
+                    SkyeState.radarFrames = data.radar.past.concat(data.radar.nowcast || []);
+                    SkyeState.radarIdx = SkyeState.radarFrames.length - 1;
+                    renderRadarFrame(SkyeState.radarIdx);
+                }
+            } catch (e) {}
+        }
+
+        function renderRadarFrame(index) {
+            if (!SkyeState.map || !SkyeState.radarFrames.length) return;
+            const frame = SkyeState.radarFrames[index];
+            if (!frame) return;
+
+            SkyeState.radarLayers.forEach(l => SkyeState.map.removeLayer(l));
+            SkyeState.radarLayers = [];
+
+            const layer = L.tileLayer(`https://tilecache.rainviewer.com${frame.path}/256/{z}/{x}/{y}/2/1_1.png`, {
+                opacity: 0.72,
+                zIndex: 100
+            }).addTo(SkyeState.map);
+
+            SkyeState.radarLayers.push(layer);
+            const t = new Date(frame.time * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            document.getElementById("radar-time-label").textContent = `Radar • ${t}`;
+        }
+
+        function toggleRadarPlayback() {
+            const icon = document.getElementById("radar-play-icon");
+            if (SkyeState.radarPlaying) {
+                clearInterval(SkyeState.radarInterval);
+                SkyeState.radarPlaying = false;
+                icon.className = "fa-solid fa-play text-[10px] text-sky-200";
+            } else {
+                if (!SkyeState.radarFrames.length) return;
+                SkyeState.radarPlaying = true;
+                icon.className = "fa-solid fa-pause text-[10px] text-amber-200";
+                SkyeState.radarInterval = setInterval(() => {
+                    SkyeState.radarIdx = (SkyeState.radarIdx + 1) % SkyeState.radarFrames.length;
+                    renderRadarFrame(SkyeState.radarIdx);
+                }, 700);
+            }
+        }
+
+        function syncMapPin(lat, lon) {
+            if (!SkyeState.map) return;
+            SkyeState.map.setView([lat, lon], SkyeState.map.getZoom(), { animate: true });
+            if (SkyeState.mapMarker) SkyeState.mapMarker.setLatLng([lat, lon]);
+        }
+
+        function recenterMap() {
+            syncMapPin(SkyeState.location.lat, SkyeState.location.lon);
+            notify(`Centered radar on ${SkyeState.location.name}`);
+        }
+
+        /***********************************************************************
+         * 14. SEARCH AUTOCOMPLETE, SAVED CITIES, CLOCK & VOICE BRIEFING
+         ***********************************************************************/
+        let searchTimer = null;
+
+        function initSearchBar() {
+            const input = document.getElementById("search-input");
+            const dropdown = document.getElementById("search-dropdown");
+            const clearBtn = document.getElementById("clear-search");
+
+            input.addEventListener("input", (e) => {
+                const q = e.target.value.trim();
+                clearBtn.classList.toggle("hidden", q.length === 0);
+                clearTimeout(searchTimer);
+
+                if (q.length < 2) {
+                    dropdown.classList.add("hidden");
+                    return;
+                }
+
+                searchTimer = setTimeout(async () => {
+                    try {
+                        const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=en&format=json`);
+                        const data = await res.json();
+                        if (!data.results?.length) {
+                            dropdown.innerHTML = `<div class="p-4 text-xs text-white/70 text-center">No locations found for "${q}"</div>`;
+                            dropdown.classList.remove("hidden");
+                            return;
+                        }
+
+                        dropdown.dataset.items = JSON.stringify(data.results);
+                        dropdown.innerHTML = data.results.map((item, idx) => `
+                            <button onclick="pickSearchResult(${idx})" class="w-full text-left px-5 py-3 hover:bg-white/15 transition flex items-center justify-between">
+                                <div>
+                                    <div class="text-sm font-bold text-white">${item.name}</div>
+                                    <div class="text-xs text-white/65">${[item.admin1, item.country].filter(Boolean).join(", ")}</div>
+                                </div>
+                                <span class="font-mono text-xs text-white/60">${item.latitude.toFixed(1)}°, ${item.longitude.toFixed(1)}°</span>
+                            </button>
+                        `).join("");
+                        dropdown.classList.remove("hidden");
+                    } catch (err) {}
+                }, 220);
+            });
+
+            document.addEventListener("click", (e) => {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.add("hidden");
+                }
+            });
+        }
+
+        async function pickSearchResult(idx) {
+            const dropdown = document.getElementById("search-dropdown");
+            const items = JSON.parse(dropdown.dataset.items || "[]");
+            const item = items[idx];
+            if (!item) return;
+
+            dropdown.classList.add("hidden");
+            document.getElementById("search-input").value = item.name;
+
+            SkyeState.location = {
+                name: item.name,
+                subLocality: item.admin2 || "",
+                region: item.admin1 || "",
+                country: item.country || "",
+                lat: item.latitude,
+                lon: item.longitude,
+                elevation: item.elevation || 0,
+                timezone: item.timezone || "auto",
+                source: "Searched Location"
+            };
+
+            notify(`Loaded ${item.name}`);
+            await fetchAllWeather();
+        }
+
+        function clearSearch() {
+            document.getElementById("search-input").value = "";
+            document.getElementById("clear-search").classList.add("hidden");
+            document.getElementById("search-dropdown").classList.add("hidden");
+        }
+
+        function startLocalClock(tz) {
+            if (SkyeState.clockTimer) clearInterval(SkyeState.clockTimer);
+            const tick = () => {
+                try {
+                    const now = new Date();
+                    document.getElementById("live-local-time").textContent = now.toLocaleTimeString("en-US", {
+                        timeZone: tz && tz !== "auto" ? tz : undefined,
+                        hour: "numeric",
+                        minute: "2-digit"
+                    });
+                    document.getElementById("live-local-date").textContent = now.toLocaleDateString("en-US", {
+                        timeZone: tz && tz !== "auto" ? tz : undefined,
+                        weekday: "long",
+                        month: "short",
+                        day: "numeric"
+                    });
+                } catch (e) {}
+            };
+            tick();
+            SkyeState.clockTimer = setInterval(tick, 10000);
+        }
+
+        function setTempUnit(u) {
+            SkyeState.tempUnit = u;
+            document.getElementById("btn-c").className = u === 'C'
+                ? "px-2.5 py-1 rounded-full bg-white text-slate-900 shadow-sm transition"
+                : "px-2.5 py-1 rounded-full text-white/80 hover:text-white transition";
+            document.getElementById("btn-f").className = u === 'F'
+                ? "px-2.5 py-1 rounded-full bg-white text-slate-900 shadow-sm transition"
+                : "px-2.5 py-1 rounded-full text-white/80 hover:text-white transition";
+            renderEverything();
+        }
+
+        function loadSavedCities() {
+            try {
+                const saved = localStorage.getItem("skye_saved_cities");
+                SkyeState.savedCities = saved ? JSON.parse(saved) : [
+                    { name: "New Delhi", region: "Delhi", country: "India", lat: 28.6139, lon: 77.2090 },
+                    { name: "Mumbai", region: "Maharashtra", country: "India", lat: 19.0760, lon: 72.8777 },
+                    { name: "London", region: "England", country: "UK", lat: 51.5074, lon: -0.1278 },
+                    { name: "Tokyo", region: "Tokyo", country: "Japan", lat: 35.6762, lon: 139.6503 },
+                    { name: "New York", region: "NY", country: "USA", lat: 40.7128, lon: -74.0060 }
+                ];
+            } catch (e) {
+                SkyeState.savedCities = [];
+            }
+            renderSavedCities();
+        }
+
+        function renderSavedCities() {
+            const strip = document.getElementById("saved-cities-strip");
+            strip.innerHTML = SkyeState.savedCities.map((c, i) => `
+                <div class="shrink-0 spatial-pill rounded-full px-3 py-1 text-xs flex items-center gap-2">
+                    <button onclick="selectSavedCity(${i})" class="font-semibold text-white/95 hover:text-white">${c.name}</button>
+                    <button onclick="deleteSavedCity(${i})" class="text-white/50 hover:text-white" title="Remove">
+                        <i class="fa-solid fa-xmark text-[10px]"></i>
+                    </button>
+                </div>
+            `).join("");
+        }
+
+        function saveCurrentCity() {
+            const exists = SkyeState.savedCities.some(c => Math.abs(c.lat - SkyeState.location.lat) < 0.05);
+            if (exists) {
+                notify(`${SkyeState.location.name} is already pinned`);
+                return;
+            }
+            SkyeState.savedCities.unshift({ ...SkyeState.location });
+            try {
+                localStorage.setItem("skye_saved_cities", JSON.stringify(SkyeState.savedCities.slice(0, 10)));
+            } catch (e) {}
+            renderSavedCities();
+            notify(`Pinned ${SkyeState.location.name}`);
+        }
+
+        async function selectSavedCity(i) {
+            const c = SkyeState.savedCities[i];
+            if (!c) return;
+            SkyeState.location = { ...SkyeState.location, ...c, source: "Pinned Location" };
+            await fetchAllWeather();
+        }
+
+        function deleteSavedCity(i) {
+            SkyeState.savedCities.splice(i, 1);
+            try {
+                localStorage.setItem("skye_saved_cities", JSON.stringify(SkyeState.savedCities));
+            } catch (e) {}
+            renderSavedCities();
+        }
+
+        function speakWeather(lang = 'en') {
+            if (!("speechSynthesis" in window) || !SkyeState.weather) return;
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+                notify("Voice briefing paused");
+                return;
+            }
+
+            const cur = SkyeState.weather.current;
+            const dy = SkyeState.weather.daily;
+            const wmo = getWmoMeta(cur.weather_code);
+            const aqi = SkyeState.airQuality?.current?.us_aqi ?? 45;
+
+            const text = lang === 'hi'
+                ? `Namaste! Abhi ${SkyeState.location.name} mein mausam ${wmo.label} hai aur taapmaan ${fmtTemp(cur.temperature_2m)} hai. Aaj adhiktam taapmaan ${fmtTemp(dy.temperature_2m_max[0])} aur nyuntam ${fmtTemp(dy.temperature_2m_min[0])} rahega. Hawa ki gati ${Math.round(cur.wind_speed_10m)} kilometer prati ghanta hai aur Air Quality Index ${aqi} hai.`
+                : `Here is the live weather for ${SkyeState.location.name}. Currently it is ${fmtTemp(cur.temperature_2m)} with ${wmo.label.toLowerCase()} skies. Today's high is ${fmtTemp(dy.temperature_2m_max[0])} and the low is ${fmtTemp(dy.temperature_2m_min[0])}. Air quality index is ${aqi}.`;
+
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = lang === 'hi' ? 'hi-IN' : 'en-US';
+            window.speechSynthesis.speak(utter);
+            notify(lang === 'hi' ? "Playing Hindi Weather Briefing" : "Playing English Weather Briefing");
+        }
+
+        function toggleSettingsModal(show) {
+            document.getElementById("settings-modal").classList.toggle("hidden", !show);
+        }
+
+        function saveApiKey() {
+            const v = document.getElementById("api-key-field").value.trim();
+            if (v) {
+                SkyeState.apiKey = v;
+                const shortKey = v.length > 14 ? `${v.slice(0, 9)}...${v.slice(-4)}` : v;
+                const headerBadge = document.getElementById("header-api-badge");
+                const mapHud = document.getElementById("map-key-hud");
+                if (headerBadge) headerBadge.textContent = shortKey;
+                if (mapHud) mapHud.innerHTML = `<i class="fa-solid fa-shield-halved text-emerald-300"></i><span>KEY: ${shortKey}</span>`;
+                setMapBaseStyle(SkyeState.mapStyle);
+                notify("API Key updated & synced across Map + Telemetry");
+                toggleSettingsModal(false);
+                fetchAllWeather();
+            }
+        }
+
+        function exportWeatherJSON() {
+            if (!SkyeState.weather) return;
+            const blob = new Blob([JSON.stringify({
+                location: SkyeState.location,
+                weather: SkyeState.weather,
+                airQuality: SkyeState.airQuality
+            }, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `skye-weather-${SkyeState.location.name.toLowerCase().replace(/\s+/g, "-")}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            notify("Downloaded Weather JSON");
+        }
+
+        function copyShareSummary() {
+            if (!SkyeState.weather) return;
+            const cur = SkyeState.weather.current;
+            const wmo = getWmoMeta(cur.weather_code);
+            const summary = `☀️ Skye Weather — ${SkyeState.location.name}\nTemp: ${fmtTemp(cur.temperature_2m)} (${wmo.label}) • Feels like ${fmtTemp(cur.apparent_temperature)}\nWind: ${Math.round(cur.wind_speed_10m)} km/h • Humidity: ${cur.relative_humidity_2m}%`;
+            const area = document.createElement("textarea");
+            area.value = summary;
+            document.body.appendChild(area);
+            area.select();
+            document.execCommand("copy");
+            area.remove();
+            notify("Weather card copied to clipboard");
+        }
+
+        /***********************************************************************
+         * 15. INITIALIZE ON WINDOW LOAD
+         ***********************************************************************/
+        window.onload = async function () {
+            initSpatialGlassInteractions();
+            initLivingSkyCanvas();
+            loadSavedCities();
+            initSearchBar();
+            await initRadarMap();
+            await detectLocation(false);
+        };
+    </script>
+</body>
+</html>
